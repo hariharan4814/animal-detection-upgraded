@@ -3,39 +3,41 @@
 **Project**: FarmSync / Intelligent Animal Detection System  
 **Stage**: STEP 6 – Read-Only Dashboard API Layer  
 **Date**: August 2026  
-**Status**: ACTIVE & VERIFIED  
+**Status**: ACTIVE & VERIFIED (With Complete Legacy Evidence)  
 
 ---
 
-## 1. Step Objective & Architecture Overview
+## 1. Step Objective & Architectural Boundary
 
-The **Dashboard Module** (`apps.dashboard`) provides an authenticated, read-only analytics and aggregation layer. It aggregates data on-demand directly from authoritative domain models (`Farmer`, `Attendance`, `Task`, `AnimalLog`, `Alert`).
+The **Dashboard Module** (`apps.dashboard`) provides an authenticated, read-only analytics and activity aggregation layer. It calculates metrics on-demand directly from authoritative domain models (`Farmer`, `Attendance`, `Task`, `AnimalLog`, `Alert`).
 
-### Core Architectural Decisions:
+### Core Architecture Rules:
 1. **Zero Duplicate Persistent Models**: The dashboard maintains zero persistent models or database tables. All metrics are computed dynamically at query time from authoritative domain tables.
 2. **Dedicated Service Layer**: All analytical query aggregations and timezone calculations reside in `DashboardService` (`apps/dashboard/services.py`), keeping views lightweight and decoupled.
 3. **Decoupled Frontend Consumption**: Returns standard JSON API response envelopes compatible with the legacy web interface, modern React/Vue SPAs, mobile applications, and Lovable AI-generated client interfaces.
 
 ---
 
-## 2. Field Classification & Source Mapping
+## 2. Legacy Evidence Matrix
 
-| Response Field | Source Domain Model | Classification | Description |
-| :--- | :--- | :--- | :--- |
-| `farmers.total_farmers` | `apps.farmers.models.Farmer` | **LEGACY-DERIVED** | Total count of registered farm workers (`SELECT COUNT(*) FROM farmers`). |
-| `attendance.today_attendance` | `apps.attendance.models.Attendance` | **LEGACY-DERIVED** | Number of worker check-ins for the current calendar date (`date = today`). |
-| `attendance.total_records` | `apps.attendance.models.Attendance` | **NEW DJANGO ENHANCEMENT** | Total lifetime attendance check-in/out records. |
-| `alerts.alerts_today` | `apps.alerts.models.Alert` | **LEGACY-DERIVED** | Count of alerts triggered today (`timestamp >= today_start`). |
-| `alerts.total_alerts` | `apps.alerts.models.Alert` | **NEW DJANGO ENHANCEMENT** | Total lifetime alert notifications. |
-| `alerts.triggered_alerts` | `apps.alerts.models.Alert` | **NEW DJANGO ENHANCEMENT** | Count of alerts with active status `'Triggered'`. |
-| `tasks.completed_tasks` | `apps.tasks.models.Task` | **LEGACY-DERIVED** | Count of tasks with status `'Completed'`. |
-| `tasks.pending_tasks` | `apps.tasks.models.Task` | **NEW DJANGO ENHANCEMENT** | Count of tasks with status `'Pending'`. |
-| `tasks.total_tasks` | `apps.tasks.models.Task` | **NEW DJANGO ENHANCEMENT** | Total count of all tasks. |
-| `detections.detections_today` | `apps.detection.models.AnimalLog` | **NEW DJANGO ENHANCEMENT** | Number of vision detection logs recorded today. |
-| `detections.total_detections` | `apps.detection.models.AnimalLog` | **NEW DJANGO ENHANCEMENT** | Total lifetime vision detection logs recorded. |
-| `recent_activity.recent_alerts` | `apps.alerts.models.Alert` | **LEGACY-DERIVED** | Latest N alert notifications with animal species and timestamps. |
-| `recent_activity.recent_detections` | `apps.detection.models.AnimalLog` | **NEW DJANGO ENHANCEMENT** | Latest N camera vision logs with confidence and image paths. |
-| `recent_activity.recent_tasks` | `apps.tasks.models.Task` | **NEW DJANGO ENHANCEMENT** | Latest N task assignments with worker names and status. |
+Every status string and metric in the Dashboard API has been verified against the original legacy codebase (`app.py`, `modules/*.py`, `templates/*.html`) and the legacy SQLite database (`data.db`):
+
+| Value / Metric | Table / Domain | Exact Legacy Evidence Source | Legacy Verified | Classification |
+| :--- | :--- | :--- | :--- | :--- |
+| `farmers.total_farmers` | `Farmer` | `app.py` line 32 (`SELECT COUNT(*) as c FROM farmers`), `templates/dashboard.html` line 37 (`{{ total_farmers }}`) | **YES** | **LEGACY-DERIVED** |
+| `attendance.today_attendance` | `Attendance` | `app.py` line 35 (`SELECT COUNT(*) as c FROM attendance WHERE date = ?`), `templates/dashboard.html` line 41 (`{{ today_attendance }}`) | **YES** | **LEGACY-DERIVED** |
+| `attendance.total_records` | `Attendance` | Not on legacy dashboard (calculated via `Attendance.objects.count()`) | **N/A** | **NEW DJANGO ENHANCEMENT** |
+| `alerts.alerts_today` | `Alert` + `AnimalLog` | `app.py` line 37 (`SELECT COUNT(*) as c FROM alerts a JOIN animal_logs al ON a.animal_log_id = al.id WHERE al.timestamp LIKE ?`), `templates/dashboard.html` line 45 (`{{ alerts_today }}`) | **YES** | **LEGACY-DERIVED** |
+| `alerts.total_alerts` | `Alert` | Not on legacy dashboard (calculated via `Alert.objects.count()`) | **N/A** | **NEW DJANGO ENHANCEMENT** |
+| `alerts.triggered_alerts` | `Alert` (`status='Triggered'`) | `modules/alerts.py` line 14 (`INSERT INTO alerts (animal_log_id, alert_type, status) VALUES (?, ?, 'Triggered')`), `data.db` (rows 1 & 2 in `alerts` have `status='Triggered'`) | **YES** | **NEW DJANGO ENHANCEMENT** |
+| `tasks.completed_tasks` | `Task` (`status='Completed'`) | `app.py` line 39 (`SELECT COUNT(*) as c FROM tasks WHERE status = 'Completed'`), `templates/dashboard.html` line 49 (`{{ completed_tasks }}`), `templates/tasks.html` line 65 (`value="Completed"`), `data.db` (`tasks` row 1 has `status='Completed'`) | **YES** | **LEGACY-DERIVED** |
+| `tasks.pending_tasks` | `Task` (`status='Pending'`) | `modules/tasks.py` line 6 (`INSERT INTO tasks (task_name, assigned_to, status, date) VALUES (?, ?, 'Pending', ?)`), `templates/tasks.html` line 62 (`{% if task.status == 'Pending' %}`) | **YES** | **NEW DJANGO ENHANCEMENT** |
+| `tasks.total_tasks` | `Task` | Not on legacy dashboard (calculated via `Task.objects.count()`) | **N/A** | **NEW DJANGO ENHANCEMENT** |
+| `detections.detections_today` | `AnimalLog` | Not on legacy dashboard (calculated via `AnimalLog.objects.filter(timestamp__gte=today_start).count()`) | **N/A** | **NEW DJANGO ENHANCEMENT** |
+| `detections.total_detections` | `AnimalLog` | Not on legacy dashboard (calculated via `AnimalLog.objects.count()`) | **N/A** | **NEW DJANGO ENHANCEMENT** |
+| `recent_activity.recent_alerts` | `Alert` | Originally on `templates/alerts.html` via `modules/alerts.py` line 81 (`get_recent_alerts()`); unified into dashboard API | **YES (as alert view)** | **NEW DJANGO ENHANCEMENT** |
+| `recent_activity.recent_detections` | `AnimalLog` | Originally on `templates/alerts.html` via `app.py` line 157 (`SELECT * FROM animal_logs... LIMIT 50`); unified into dashboard API | **YES (as alert view)** | **NEW DJANGO ENHANCEMENT** |
+| `recent_activity.recent_tasks` | `Task` | Originally on `templates/tasks.html` via `modules/tasks.py` line 13 (`get_all_tasks()`); unified into dashboard API | **YES (as task view)** | **NEW DJANGO ENHANCEMENT** |
 
 ---
 
