@@ -48,8 +48,10 @@ INSTALLED_APPS = [
     'rest_framework',
     'corsheaders',
 
+    # FarmSync Core Infrastructure App (Step 2)
+    'apps.core',
+
     # Future Domain Apps (To be enabled in upcoming migration steps):
-    # 'apps.core',
     # 'apps.accounts',
     # 'apps.settings_app',
     # 'apps.dashboard',
@@ -159,6 +161,7 @@ REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.AllowAny',
     ],
+    'EXCEPTION_HANDLER': 'apps.core.exceptions.custom_exception_handler',
 }
 
 # Cross-Origin Resource Sharing (CORS) Configuration
