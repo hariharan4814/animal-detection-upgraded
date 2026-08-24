@@ -55,3 +55,11 @@ class CoreAPITests(TestCase):
         """Verify requesting a non-existent API route returns a 404 in standard format."""
         response = self.client.get('/api/v1/non-existent-route/')
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_root_url_serves_frontend_spa(self):
+        """Verify root GET / serves the decoupled Single-Page Application interface."""
+        response = self.client.get('/')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn(b'FarmSync', response.content)
+        self.assertIn(b'api.js', response.content)
+        self.assertIn(b'app.js', response.content)
