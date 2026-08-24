@@ -1,5 +1,5 @@
-# FarmSync Django Backend Foundation Dependencies
-# Phase: STEP 1 - Foundation & Directory Setup
+# FarmSync Django Backend Foundation & Auth Dependencies
+# Phase: STEP 4 - Authentication & Authorization
 
 Django>=5.0,<5.3
 djangorestframework>=3.14.0
@@ -7,3 +7,5 @@ django-cors-headers>=4.3.0
 python-dotenv>=1.0.0
 asgiref>=3.8.0
 sqlparse>=0.5.0
+djangorestframework-simplejwt>=5.3.0
+PyJWT>=2.8.0

@@ -51,15 +51,17 @@ INSTALLED_APPS = [
     # FarmSync Core Infrastructure App (Step 2)
     'apps.core',
 
+    # FarmSync Domain Apps with Verified Database Models (Step 3)
+    'apps.farmers',
+    'apps.attendance',
+    'apps.tasks',
+    'apps.detection',
+    'apps.alerts',
+
     # Future Domain Apps (To be enabled in upcoming migration steps):
     # 'apps.accounts',
     # 'apps.settings_app',
     # 'apps.dashboard',
-    # 'apps.farmers',
-    # 'apps.attendance',
-    # 'apps.tasks',
-    # 'apps.detection',
-    # 'apps.alerts',
 ]
 
 MIDDLEWARE = [
