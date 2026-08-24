@@ -17,6 +17,7 @@ urlpatterns = [
     # Version 1 REST API Global Gateway
     path('api/v1/', include('apps.core.urls')),
     path('api/v1/auth/', include('apps.accounts.urls')),
+    path('api/v1/settings/', include('apps.settings_app.urls')),
 
     # Future REST API Modular Routes (To be activated in upcoming migration steps):
     # path('api/v1/dashboard/', include('apps.dashboard.urls')),
@@ -25,7 +26,6 @@ urlpatterns = [
     # path('api/v1/tasks/', include('apps.tasks.urls')),
     # path('api/v1/detection/', include('apps.detection.urls')),
     # path('api/v1/alerts/', include('apps.alerts.urls')),
-    # path('api/v1/settings/', include('apps.settings_app.urls')),
 ]
 
 # Serve media files during local development

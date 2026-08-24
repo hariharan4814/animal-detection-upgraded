@@ -64,8 +64,10 @@ INSTALLED_APPS = [
     'apps.detection',
     'apps.alerts',
 
+    # FarmSync Settings & Customization App (Step 5)
+    'apps.settings_app',
+
     # Future Domain Apps (To be enabled in upcoming migration steps):
-    # 'apps.settings_app',
     # 'apps.dashboard',
 ]
 
