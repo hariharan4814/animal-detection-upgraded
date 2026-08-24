@@ -119,8 +119,10 @@ class AlertReceiverDetailView(APIView):
 
 class ProjectSettingsView(APIView):
     """
-    GET /api/v1/settings/project/ - Retrieve system parameters (authenticated users).
-    PUT /api/v1/settings/project/ - Update system parameters (staff only).
+    GET   /api/v1/settings/        - Retrieve global system configuration (authenticated users).
+    PATCH /api/v1/settings/        - Partially update global system configuration (staff/admin only).
+    PUT   /api/v1/settings/        - Update system configuration (staff/admin only).
+    GET   /api/v1/settings/project/ - Backward-compatible endpoint for system configuration.
     """
     permission_classes = [IsAdminOrReadOnly]
 
@@ -129,6 +131,18 @@ class ProjectSettingsView(APIView):
         serializer = ProjectSettingsSerializer(settings_obj)
         return success_response(
             message="Project settings retrieved successfully.",
+            data=serializer.data,
+            status_code=status.HTTP_200_OK
+        )
+
+    def patch(self, request, *args, **kwargs):
+        settings_obj = ProjectSettings.get_settings()
+        serializer = ProjectSettingsSerializer(settings_obj, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+
+        return success_response(
+            message="Project settings partially updated successfully.",
             data=serializer.data,
             status_code=status.HTTP_200_OK
         )

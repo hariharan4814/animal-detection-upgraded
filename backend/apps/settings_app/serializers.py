@@ -124,7 +124,25 @@ class ProjectSettingsSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Alert cooldown duration cannot be negative.")
         return value
 
+    def validate_camera_device_index(self, value: int) -> int:
+        if value < 0:
+            raise serializers.ValidationError("Camera device index cannot be negative.")
+        return value
+
     def validate_wage_per_hour(self, value: float) -> float:
         if value < 0:
             raise serializers.ValidationError("Hourly wage cannot be negative.")
         return round(value, 2)
+
+    def validate_threat_level_overrides(self, value: dict) -> dict:
+        if not isinstance(value, dict):
+            raise serializers.ValidationError("Threat level overrides must be a dictionary.")
+        valid_tiers = {'high', 'medium', 'low'}
+        for species, tier in value.items():
+            if not isinstance(species, str) or not species.strip():
+                raise serializers.ValidationError("Species name in threat level overrides must be a non-empty string.")
+            if not isinstance(tier, str) or tier.lower() not in valid_tiers:
+                raise serializers.ValidationError(
+                    f"Invalid threat level '{tier}' for species '{species}'. Must be one of: {', '.join(valid_tiers)}."
+                )
+        return value

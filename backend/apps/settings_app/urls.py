@@ -13,8 +13,9 @@ from apps.settings_app.views import (
 app_name = 'settings_app'
 
 urlpatterns = [
+    path('', ProjectSettingsView.as_view(), name='settings_root'),
+    path('project/', ProjectSettingsView.as_view(), name='project_settings'),
     path('email-sender/', EmailSenderConfigView.as_view(), name='email_sender'),
     path('receivers/', AlertReceiverListCreateView.as_view(), name='receiver_list_create'),
     path('receivers/<int:pk>/', AlertReceiverDetailView.as_view(), name='receiver_detail'),
-    path('project/', ProjectSettingsView.as_view(), name='project_settings'),
 ]
