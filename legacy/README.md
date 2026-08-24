@@ -1,40 +1,70 @@
-# Legacy Flask Application Reference
+# FarmSync Legacy Application Archive
 
 **Project**: FarmSync / Intelligent Animal Detection System  
-**Role**: Untouched Legacy Codebase & Reference Archive  
-**Status**: READ-ONLY / PRESERVED  
+**Archive Layer**: Historical Pre-Migration Flask Artifacts & Original SQLite Database  
+**Status**: ARCHIVED FOR MIGRATION PROVENANCE & VIVA EVIDENCE  
 
 ---
 
-## Purpose of Legacy Reference
+## 1. Purpose of this Archive
 
-This directory and the existing root-level Flask files represent the original prototype implementation of the **FarmSync / Intelligent Animal Detection System**. 
+This directory houses the original monolithic Python Flask application, SQLite database (`data.db`), and Jinja2 templates before the architectural migration to a modern, decoupled **Django REST Framework (DRF) backend + Single-Page Application (SPA) frontend**.
 
-During the controlled migration to a decoupled Django REST Framework backend and independent frontend:
-1. **Zero Modification**: No legacy Flask source files (`app.py`, `database/db.py`, `modules/*.py`, `templates/*.html`, `static/*`, `config.json`, `data.db`) are modified or deleted.
-2. **Behavioral Ground Truth**: The legacy codebase serves as the baseline for verifying business logic, YOLO bounding box operations, threat level evaluations, attendance hours calculations, and alert triggers.
-3. **No Direct Import**: The new Django backend (`/backend/`) and decoupled frontend (`/frontend/`) do **not** import, reference, or execute files from the legacy Flask implementation.
+> [!NOTE]
+> This folder is **NOT part of the active production runtime**. It is preserved strictly to demonstrate architectural evolution, baseline data fidelity, and project/Viva review.
 
 ---
 
-## Legacy File Index
+## 2. Directory Structure
 
-| File / Folder | Original Purpose | Migration Target |
-| :--- | :--- | :--- |
-| `app.py` | Flask monolith entry point & route handlers | `backend/config/urls.py` & `backend/apps/*/views.py` |
-| `config.json` | 46-animal threat mappings & wage configs | `backend/apps/settings_app/` (DB models & fixtures) |
-| `data.db` | Raw SQLite database file | `backend/data.db` (Managed by Django ORM) |
-| `database/db.py` | Direct SQLite connection & raw SQL queries | Replaced by Django ORM models and migrations |
-| `modules/alerts.py` | Email (`smtplib`) & buzzer (`pygame`) alerts | `backend/services/notifications/` & `backend/apps/alerts/` |
-| `modules/animal_detection.py` | YOLOv8 detection & OpenCV streaming generator | `backend/services/yolo/` & `backend/services/camera/` |
-| `modules/attendance.py` | Check-in/out logic & hours calculation | `backend/apps/attendance/` |
-| `modules/tasks.py` | Task assignment & status updates | `backend/apps/tasks/` |
-| `templates/*.html` | 7 Jinja2 HTML templates | Replaced by decoupled frontend SPA components |
-| `static/style.css` | Light green glassmorphism CSS design system | `frontend/src/styles/style.css` |
-| `static/script.js` | Legacy jQuery event handlers | Replaced by frontend API services |
-| `warning_sound.mp3` | Local audio buzzer file | `backend/media/audio/warning_sound.mp3` |
-| `yolov8n.pt` | YOLOv8 Nano PyTorch model weights | `backend/services/yolo/weights/yolov8n.pt` |
+```
+legacy/
+├── README.md                 # This provenance documentation
+├── flask_app/
+│   ├── app.py                # Legacy Flask HTTP server & video feed generator
+│   ├── config.json           # Pre-migration alert & system configuration
+│   ├── run.txt               # Original manual run instructions
+│   ├── requirements.txt      # Legacy Flask-only dependencies
+│   ├── modules/              # Original business logic modules
+│   │   ├── alerts.py         # SMTP email sending & notification dispatch
+│   │   ├── animal_detection.py# YOLO detection & OpenCV video capture
+│   │   ├── attendance.py     # SQLite worker check-in/out queries
+│   │   └── tasks.py          # SQLite task assignment queries
+│   ├── database/             # Original database connection helper
+│   │   └── db.py             # SQLite raw SQL connection helper
+│   └── templates/            # Original Flask server-side Jinja templates
+│       ├── alerts.html
+│       ├── attendance.html
+│       ├── attendance_report.html
+│       ├── camera.html
+│       ├── dashboard.html
+│       ├── farmers.html
+│       └── tasks.html
+├── data/
+│   └── data.db               # Original SQLite database with 6 tables
+└── source_assets/
+    └── layout.jpg            # Original UI wireframe diagram
+```
 
 ---
 
-> **Note**: For complete architectural analysis and migration details, refer to `docs/migration/migration_audit.md` and `docs/architecture/architecture_assessment.md`.
+## 3. Legacy vs. Active Architecture Mapping
+
+| Legacy Flask / SQLite Component | Active Django / SPA Equivalent | Migration Status |
+|---|---|---|
+| `app.py` (Flask Routes) | `backend/config/urls.py` + `backend/apps/*/views.py` | Migrated to Version 1 REST API Gateway (`/api/v1/`) |
+| `modules/animal_detection.py` | `backend/services/yolo/` + `backend/apps/detection/` | Migrated to Singleton Cached YOLOv8 Inference Engine |
+| `modules/alerts.py` | `backend/apps/alerts/` + `backend/apps/settings_app/` | Migrated to Dynamic Alert Triggering & Settings |
+| `modules/attendance.py` | `backend/apps/attendance/` | Migrated to Attendance REST API & ORM Models |
+| `modules/tasks.py` | `backend/apps/tasks/` | Migrated to Tasks Management REST API |
+| `database/db.py` & `data.db` | `backend/apps/*/models.py` & `backend/db.sqlite3` | Migrated to Django ORM Models with foreign keys |
+| `templates/*.html` (Jinja) | `frontend/index.html` + `frontend/js/app.js` | Migrated to Decoupled Single-Page Application (SPA) |
+| `config.json` | `apps.settings_app.models.ProjectSettings` | Migrated to Database-backed Runtime Settings Singleton |
+
+---
+
+## 4. Legacy Database Integrity Guarantee
+
+- `legacy/data/data.db` is frozen in time as the initial historical data source.
+- Django migrations and tests run exclusively against `backend/db.sqlite3` (or ephemeral in-memory test databases).
+- No write operations are permitted against `legacy/data/data.db`.
