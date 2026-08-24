@@ -18,9 +18,9 @@ urlpatterns = [
     path('api/v1/', include('apps.core.urls')),
     path('api/v1/auth/', include('apps.accounts.urls')),
     path('api/v1/settings/', include('apps.settings_app.urls')),
+    path('api/v1/dashboard/', include('apps.dashboard.urls')),
 
     # Future REST API Modular Routes (To be activated in upcoming migration steps):
-    # path('api/v1/dashboard/', include('apps.dashboard.urls')),
     # path('api/v1/farmers/', include('apps.farmers.urls')),
     # path('api/v1/attendance/', include('apps.attendance.urls')),
     # path('api/v1/tasks/', include('apps.tasks.urls')),

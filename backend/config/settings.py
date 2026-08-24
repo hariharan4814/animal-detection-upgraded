@@ -67,8 +67,8 @@ INSTALLED_APPS = [
     # FarmSync Settings & Customization App (Step 5)
     'apps.settings_app',
 
-    # Future Domain Apps (To be enabled in upcoming migration steps):
-    # 'apps.dashboard',
+    # FarmSync Dashboard & Analytics App (Step 6)
+    'apps.dashboard',
 ]
 
 MIDDLEWARE = [
