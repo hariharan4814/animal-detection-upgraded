@@ -100,10 +100,32 @@ class DetectionAnalyzeView(APIView):
 class DetectionStreamView(APIView):
     """
     GET /api/v1/detection/stream/ - Multipart MJPEG live video stream endpoint.
+    Supports standard Bearer Authorization header, Session, and query parameter token.
     """
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.AllowAny]
 
     def get(self, request, *args, **kwargs):
+        from rest_framework_simplejwt.authentication import JWTAuthentication
+        from rest_framework.exceptions import NotAuthenticated, AuthenticationFailed
+
+        # 1. Check if user is already authenticated via header or session
+        if not (request.user and request.user.is_authenticated):
+            # 2. Check query parameter token for browser <img> streaming
+            token = request.query_params.get('token')
+            if token:
+                try:
+                    jwt_auth = JWTAuthentication()
+                    validated_token = jwt_auth.get_validated_token(token)
+                    user = jwt_auth.get_user(validated_token)
+                    if user and user.is_authenticated:
+                        request.user = user
+                    else:
+                        raise AuthenticationFailed("User not found or inactive.")
+                except Exception:
+                    raise AuthenticationFailed("Invalid or expired stream token.")
+            else:
+                raise NotAuthenticated("Authentication credentials were not provided.")
+
         return StreamingHttpResponse(
             VideoStreamService.generate_frames(),
             content_type='multipart/x-mixed-replace; boundary=frame'

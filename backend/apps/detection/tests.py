@@ -526,3 +526,17 @@ class DetectionAPITests(TestCase):
             frames = list(VideoStreamService.generate_frames(max_frames=2))
             self.assertEqual(len(frames), 2)
             self.assertTrue(frames[0].startswith(b'--frame\r\nContent-Type: image/jpeg\r\n\r\n'))
+
+    def test_25_video_stream_query_param_token_authentication(self):
+        """25. Video stream authenticates successfully with a valid ?token= query parameter."""
+        from rest_framework_simplejwt.tokens import AccessToken
+        token = str(AccessToken.for_user(self.regular_user))
+
+        response = self.client.get(f"{self.stream_url}?token={token}")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response['Content-Type'], 'multipart/x-mixed-replace; boundary=frame')
+
+    def test_26_video_stream_invalid_query_param_token_rejected(self):
+        """26. Video stream rejects invalid ?token= query parameter with HTTP 401."""
+        response = self.client.get(f"{self.stream_url}?token=invalid-token-xyz")
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)

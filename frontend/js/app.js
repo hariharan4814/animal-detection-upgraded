@@ -305,7 +305,7 @@ document.addEventListener('DOMContentLoaded', () => {
         <td>#${farmer.id}</td>
         <td><strong>${escapeHtml(farmer.name)}</strong></td>
         <td>${escapeHtml(farmer.field || 'General Field')}</td>
-        <td>${escapeHtml(farmer.contact || 'N/A')}</td>
+        <td>${escapeHtml(farmer.phone || 'N/A')}</td>
         <td>
           ${isStaff ? `
             <button class="btn btn-sm btn-outline" onclick="window.editFarmerPrompt(${farmer.id})">Edit</button>
@@ -324,7 +324,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const payload = {
         name: document.getElementById('farmer-name').value.trim(),
         field: document.getElementById('farmer-field').value.trim(),
-        contact: document.getElementById('farmer-contact').value.trim()
+        phone: document.getElementById('farmer-phone').value.trim()
       };
 
       try {
@@ -357,7 +357,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('edit-farmer-id').value = farmer.id;
     document.getElementById('edit-farmer-name').value = farmer.name;
     document.getElementById('edit-farmer-field').value = farmer.field || '';
-    document.getElementById('edit-farmer-contact').value = farmer.contact || '';
+    document.getElementById('edit-farmer-phone').value = farmer.phone || '';
     openModal('edit-farmer-modal');
   };
 
@@ -369,7 +369,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const payload = {
         name: document.getElementById('edit-farmer-name').value.trim(),
         field: document.getElementById('edit-farmer-field').value.trim(),
-        contact: document.getElementById('edit-farmer-contact').value.trim()
+        phone: document.getElementById('edit-farmer-phone').value.trim()
       };
 
       try {

@@ -328,7 +328,10 @@ class ApiClient {
   }
 
   getStreamUrl() {
-    return `${API_BASE_URL}/detection/stream/`;
+    const token = this.getAccessToken();
+    return token
+      ? `${API_BASE_URL}/detection/stream/?token=${encodeURIComponent(token)}`
+      : `${API_BASE_URL}/detection/stream/`;
   }
 
   // ==========================================
