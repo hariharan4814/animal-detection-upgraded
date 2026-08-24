@@ -19,15 +19,31 @@ from rest_framework.views import exception_handler
 from rest_framework.response import Response
 from rest_framework import status
 
+try:
+    from rest_framework_simplejwt.exceptions import TokenError, InvalidToken
+except ImportError:
+    TokenError, InvalidToken = Exception, Exception
+
 logger = logging.getLogger(__name__)
 
 
 def custom_exception_handler(exc: Exception, context: Dict[str, Any]) -> Response:
     """
     Custom exception handler for Django REST Framework.
-    Intercepts standard DRF and Django exceptions and formats them
+    Intercepts standard DRF, SimpleJWT, and Django exceptions and formats them
     consistently according to FarmSync API contracts.
     """
+    # Intercept SimpleJWT TokenError directly if not caught by DRF base handler
+    if isinstance(exc, (TokenError, InvalidToken)):
+        return Response(
+            {
+                "success": False,
+                "message": str(exc),
+                "errors": {"token": [str(exc)]}
+            },
+            status=status.HTTP_401_UNAUTHORIZED
+        )
+
     # Call DRF's default exception handler first to get the standard response
     response = exception_handler(exc, context)
 

@@ -7,6 +7,7 @@ Phase: STEP 1 - Project Foundation & Directory Structure.
 
 import os
 from pathlib import Path
+from datetime import timedelta
 from dotenv import load_dotenv
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -46,10 +47,15 @@ INSTALLED_APPS = [
 
     # Third-Party Foundation Packages
     'rest_framework',
+    'rest_framework_simplejwt',
+    'rest_framework_simplejwt.token_blacklist',
     'corsheaders',
 
     # FarmSync Core Infrastructure App (Step 2)
     'apps.core',
+
+    # FarmSync Accounts & Authentication App (Step 4)
+    'apps.accounts',
 
     # FarmSync Domain Apps with Verified Database Models (Step 3)
     'apps.farmers',
@@ -59,7 +65,6 @@ INSTALLED_APPS = [
     'apps.alerts',
 
     # Future Domain Apps (To be enabled in upcoming migration steps):
-    # 'apps.accounts',
     # 'apps.settings_app',
     # 'apps.dashboard',
 ]
@@ -157,13 +162,28 @@ REST_FRAMEWORK = {
         'rest_framework.renderers.BrowsableAPIRenderer',
     ],
     'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
         'rest_framework.authentication.SessionAuthentication',
-        'rest_framework.authentication.BasicAuthentication',
     ],
     'DEFAULT_PERMISSION_CLASSES': [
-        'rest_framework.permissions.AllowAny',
+        'rest_framework.permissions.IsAuthenticated',
     ],
     'EXCEPTION_HANDLER': 'apps.core.exceptions.custom_exception_handler',
+}
+
+# SimpleJWT Authentication Configuration
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=int(os.getenv('JWT_ACCESS_EXPIRATION_MINUTES', '60'))),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=int(os.getenv('JWT_REFRESH_EXPIRATION_DAYS', '7'))),
+    'ROTATE_REFRESH_TOKENS': True,
+    'BLACKLIST_AFTER_ROTATION': True,
+    'UPDATE_LAST_LOGIN': True,
+    'ALGORITHM': 'HS256',
+    'SIGNING_KEY': SECRET_KEY,
+    'AUTH_HEADER_TYPES': ('Bearer',),
+    'USER_ID_FIELD': 'id',
+    'USER_ID_CLAIM': 'user_id',
+    'AUTH_TOKEN_CLASSES': ('rest_framework_simplejwt.tokens.AccessToken',),
 }
 
 # Cross-Origin Resource Sharing (CORS) Configuration
