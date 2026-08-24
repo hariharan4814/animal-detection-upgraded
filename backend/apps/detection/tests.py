@@ -21,7 +21,7 @@ from rest_framework import status
 from apps.settings_app.models import ProjectSettings
 from apps.detection.models import AnimalLog
 from apps.alerts.models import Alert
-from apps.detection.services import DetectionService, _last_notification_timestamps
+from apps.detection.services import DetectionService, VideoStreamService, _last_notification_timestamps
 from services.yolo import set_mock_model, reset_model_cache, get_model, is_model_available, ANIMAL_CLASSES
 
 
@@ -383,12 +383,146 @@ class DetectionAPITests(TestCase):
         self.assertFalse(response.json()['success'])
 
     # ==========================================================================
-    # 5. LIVE VIDEO STREAMING TEST
+    # 5. LIVE VIDEO STREAMING & CAMERA INTEGRATION TESTS (STEP 13)
     # ==========================================================================
-    def test_18_video_stream_endpoint(self):
-        """18. Video stream endpoint returns StreamingHttpResponse with multipart MJPEG content type."""
+    def test_18_video_stream_unauthenticated_rejected(self):
+        """18. Unauthenticated video stream request is rejected with HTTP 401."""
+        response = self.client.get(self.stream_url)
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_19_video_stream_endpoint_content_type(self):
+        """19. Video stream endpoint returns StreamingHttpResponse with multipart MJPEG content type."""
         self.client.force_authenticate(user=self.regular_user)
         response = self.client.get(self.stream_url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response['Content-Type'], 'multipart/x-mixed-replace; boundary=frame')
         self.assertTrue(response.streaming)
+
+    def test_20_video_stream_generator_mock_camera(self):
+        """20. VideoStreamService acquires camera frames and safely releases resource."""
+        from unittest.mock import patch
+
+        class MockCap:
+            def __init__(self, index=0):
+                self.index = index
+                self.read_count = 0
+                self.released = False
+
+            def isOpened(self):
+                return not self.released
+
+            def read(self):
+                if self.read_count >= 2 or self.released:
+                    return False, None
+                self.read_count += 1
+                return True, np.zeros((100, 100, 3), dtype=np.uint8)
+
+            def release(self):
+                self.released = True
+
+        mock_cap_instance = MockCap()
+        with patch('apps.detection.services.cv2.VideoCapture', return_value=mock_cap_instance):
+            frames = list(VideoStreamService.generate_frames(max_frames=2))
+            self.assertEqual(len(frames), 2)
+            self.assertTrue(frames[0].startswith(b'--frame\r\nContent-Type: image/jpeg\r\n\r\n'))
+            self.assertTrue(mock_cap_instance.released)
+
+    def test_21_video_stream_uses_project_settings_camera_index(self):
+        """21. VideoStreamService passes dynamic ProjectSettings.camera_device_index to cv2.VideoCapture."""
+        from unittest.mock import patch
+        self.settings.camera_device_index = 4
+        self.settings.save()
+
+        recorded_indices = []
+
+        class MockCap:
+            def __init__(self, index=0):
+                recorded_indices.append(index)
+                self.released = False
+
+            def isOpened(self):
+                return not self.released
+
+            def read(self):
+                return False, None
+
+            def release(self):
+                self.released = True
+
+        with patch('apps.detection.services.cv2.VideoCapture', side_effect=MockCap):
+            list(VideoStreamService.generate_frames(max_frames=1))
+            self.assertEqual(recorded_indices, [4])
+
+    def test_22_video_stream_detection_disabled_skips_inference(self):
+        """22. When detection_enabled=False, camera stream skips YOLO inference."""
+        from unittest.mock import patch
+        self.settings.detection_enabled = False
+        self.settings.save()
+
+        class MockCap:
+            def __init__(self, index=0):
+                self.count = 0
+                self.released = False
+
+            def isOpened(self):
+                return not self.released
+
+            def read(self):
+                if self.count >= 1:
+                    return False, None
+                self.count += 1
+                return True, np.zeros((100, 100, 3), dtype=np.uint8)
+
+            def release(self):
+                self.released = True
+
+        with patch('apps.detection.services.cv2.VideoCapture', return_value=MockCap()), \
+             patch('apps.detection.services.run_inference') as mock_inf:
+            list(VideoStreamService.generate_frames(max_frames=1))
+            mock_inf.assert_not_called()
+
+    def test_23_video_stream_detection_enabled_annotates_frame(self):
+        """23. When detection_enabled=True, camera stream runs YOLO inference."""
+        from unittest.mock import patch
+        self.settings.detection_enabled = True
+        self.settings.detection_confidence_threshold = 0.60
+        self.settings.save()
+
+        class MockCap:
+            def __init__(self, index=0):
+                self.count = 0
+                self.released = False
+
+            def isOpened(self):
+                return not self.released
+
+            def read(self):
+                if self.count >= 1:
+                    return False, None
+                self.count += 1
+                return True, np.zeros((100, 100, 3), dtype=np.uint8)
+
+            def release(self):
+                self.released = True
+
+        dummy_annotated = np.ones((100, 100, 3), dtype=np.uint8)
+        with patch('apps.detection.services.cv2.VideoCapture', return_value=MockCap()), \
+             patch('apps.detection.services.run_inference', return_value={'annotated_frame': dummy_annotated}) as mock_inf:
+            list(VideoStreamService.generate_frames(max_frames=1))
+            mock_inf.assert_called_once()
+
+    def test_24_video_stream_camera_open_failure_handled_gracefully(self):
+        """24. When camera fails to open, yields synthetic placeholder frames without crashing."""
+        from unittest.mock import patch
+
+        class FailCap:
+            def isOpened(self):
+                return False
+
+            def release(self):
+                pass
+
+        with patch('apps.detection.services.cv2.VideoCapture', return_value=FailCap()):
+            frames = list(VideoStreamService.generate_frames(max_frames=2))
+            self.assertEqual(len(frames), 2)
+            self.assertTrue(frames[0].startswith(b'--frame\r\nContent-Type: image/jpeg\r\n\r\n'))

@@ -201,11 +201,11 @@ class DetectionService:
 class VideoStreamService:
     """
     Provides multipart MJPEG frame streaming for real-time camera views.
-    Handles device acquisition, error recovery, and camera toggles.
+    Handles device acquisition, error recovery, dynamic settings reflection, and camera toggles.
     """
 
     @classmethod
-    def generate_frames(cls):
+    def generate_frames(cls, max_frames: int | None = None):
         """
         Yields multipart HTTP MJPEG frame chunks.
         Safely generates simulated canvas if physical camera hardware is unavailable.
@@ -224,19 +224,32 @@ class VideoStreamService:
                 logger.warning(f"Unable to open camera hardware index {camera_idx}: {e}")
                 cap = None
 
+        frames_yielded = 0
+        default_limit = 100 if max_frames is None else max_frames
+
         try:
-            for _ in range(100):  # Stream chunk limit or continuous loop
+            while frames_yielded < default_limit:
+                # Dynamic settings lookup on every frame
+                project_settings = ProjectSettings.get_settings()
+
                 if cap is not None and cap.isOpened():
                     ret, frame = cap.read()
                     if not ret:
                         break
 
                     if project_settings.detection_enabled:
-                        inf = run_inference(frame, confidence_threshold=project_settings.detection_confidence_threshold)
+                        inf = run_inference(
+                            frame,
+                            confidence_threshold=project_settings.detection_confidence_threshold,
+                            threat_levels=project_settings.threat_level_overrides or None
+                        )
                         frame = inf.get('annotated_frame', frame)
 
-                    ret, buffer = cv2.imencode('.jpg', frame)
-                    frame_bytes = buffer.tobytes()
+                    if cv2 is not None:
+                        ret, buffer = cv2.imencode('.jpg', frame)
+                        frame_bytes = buffer.tobytes()
+                    else:
+                        frame_bytes = b''
                 else:
                     # Generate synthetic placeholder frame for headless / non-hardware environments
                     synthetic_frame = np.zeros((480, 640, 3), dtype=np.uint8)
@@ -257,6 +270,7 @@ class VideoStreamService:
 
                 yield (b'--frame\r\n'
                        b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
+                frames_yielded += 1
                 time.sleep(0.05)
         finally:
             if cap is not None:
