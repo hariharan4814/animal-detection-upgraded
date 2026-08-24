@@ -24,8 +24,9 @@ urlpatterns = [
 
     path('api/v1/tasks/', include('apps.tasks.urls')),
 
+    path('api/v1/detection/', include('apps.detection.urls')),
+
     # Future REST API Modular Routes (To be activated in upcoming migration steps):
-    # path('api/v1/detection/', include('apps.detection.urls')),
     # path('api/v1/alerts/', include('apps.alerts.urls')),
 ]
 
