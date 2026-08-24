@@ -26,8 +26,7 @@ urlpatterns = [
 
     path('api/v1/detection/', include('apps.detection.urls')),
 
-    # Future REST API Modular Routes (To be activated in upcoming migration steps):
-    # path('api/v1/alerts/', include('apps.alerts.urls')),
+    path('api/v1/alerts/', include('apps.alerts.urls')),
 ]
 
 # Serve media files during local development
