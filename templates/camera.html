@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Camera Feed - Smart Farm Monitoring</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="dashboard-container">
+        <!-- Sidebar -->
+        <div class="sidebar glass-panel">
+            <h2><img src="{{ url_for('static', filename='green_glass_decorative.png') }}" alt="logo"> Farm<span>Sync</span></h2>
+            <ul>
+                <li><a href="/">Dashboard</a></li>
+                <li><a href="/farmers">Farmers</a></li>
+                <li class="active"><a href="/camera">Camera Feed</a></li>
+                <li><a href="/attendance">Attendance</a></li>
+                <li><a href="/attendance_report">Attendance Report</a></li>
+                <li><a href="/tasks">Tasks</a></li>
+                <li><a href="/alerts">Alerts</a></li>
+            </ul>
+        </div>
+        <!-- Main Content -->
+        <div class="main-content">
+            <header class="glass-panel">
+                <h1>Camera Feed</h1>
+                <p>Live view and object detection control</p>
+            </header>
+            <div class="content-grid" style="grid-template-columns: 1fr;">
+                <div class="camera-section glass-panel" id="camera-section">
+                    <h3>Live Camera Feed</h3>
+                    <div class="video-container">
+                        <img src="{{ url_for('video_feed') }}" alt="Video Stream" id="video-stream">
+                    </div>
+                    <div class="controls" style="display:flex; gap:10px; justify-content:center;">
+                        <button id="toggle-camera" class="btn btn-secondary" style="background:#475569; color:white;">Turn Camera OFF</button>
+                        <button id="toggle-detection" class="btn btn-primary">Start Detection</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script>
+        document.getElementById('toggle-camera').addEventListener('click', function() {
+            fetch('/toggle_camera')
+                .then(response => response.json())
+                .then(data => {
+                    if(data.camera_on) {
+                        this.innerText = 'Turn Camera OFF';
+                        this.classList.remove('btn-danger');
+                        this.style.background = '#475569';
+                    } else {
+                        this.innerText = 'Turn Camera ON';
+                        this.style.background = '';
+                        this.classList.add('btn-danger');
+                    }
+                });
+        });
+
+        document.getElementById('toggle-detection').addEventListener('click', function() {
+            fetch('/toggle_detection')
+                .then(response => response.json())
+                .then(data => {
+                    if(data.detect) {
+                        this.innerText = 'Stop Detection';
+                        this.classList.remove('btn-primary');
+                        this.classList.add('btn-danger');
+                    } else {
+                        this.innerText = 'Start Detection';
+                        this.classList.remove('btn-danger');
+                        this.classList.add('btn-primary');
+                    }
+                });
+        });
+    </script>
+</body>
+</html>

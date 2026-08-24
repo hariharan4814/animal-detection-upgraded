@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Attendance Report - Smart Farm Monitoring</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="dashboard-container">
+        <!-- Sidebar -->
+        <div class="sidebar glass-panel">
+            <h2><img src="{{ url_for('static', filename='green_glass_decorative.png') }}" alt="logo"> Farm<span>Sync</span></h2>
+            <ul>
+                <li><a href="/">Dashboard</a></li>
+                <li><a href="/farmers">Farmers</a></li>
+                <li><a href="/camera">Camera Feed</a></li>
+                <li><a href="/attendance">Attendance</a></li>
+                <li class="active"><a href="/attendance_report">Attendance Report</a></li>
+                <li><a href="/tasks">Tasks</a></li>
+                <li><a href="/alerts">Alerts</a></li>
+            </ul>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <header class="glass-panel">
+                <h1>Attendance Report</h1>
+                <p>Track monthly or custom date attendance data</p>
+            </header>
+
+            <div class="content-grid" style="grid-template-columns: 1fr;">
+                
+                <!-- Filter Form -->
+                <div class="table-section glass-panel">
+                    <h3>Filter by Date</h3>
+                    <form action="/attendance_report" method="POST" class="inline-form add-task-form" style="display:flex; gap:15px; flex-wrap:wrap; align-items: center;">
+                        <div>
+                            <label for="start_date" style="display:block; font-size:12px; margin-bottom:5px; color:var(--text-muted);">Start Date</label>
+                            <input type="date" name="start_date" id="start_date" value="{{ start_date }}" required style="width:100%;">
+                        </div>
+                        <div>
+                            <label for="end_date" style="display:block; font-size:12px; margin-bottom:5px; color:var(--text-muted);">End Date</label>
+                            <input type="date" name="end_date" id="end_date" value="{{ end_date }}" required style="width:100%;">
+                        </div>
+                        <div style="align-self: flex-end;">
+                            <button type="submit" class="btn btn-primary" style="height: 42px;">Search Logs</button>
+                            <a href="/attendance_report" class="btn btn-danger" style="text-decoration:none; display:inline-block; line-height: 22px; height: 42px;">Clear</a>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Logs List -->
+                <div class="table-section glass-panel">
+                    <h3>Filtered Attendance Data</h3>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Date</th>
+                                <th>Check In Time</th>
+                                <th>Check Out Time</th>
+                                <th>Hours Logged</th>
+                                <th>Recorded Location</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for log in logs %}
+                            <tr>
+                                <td>{{ log.name }}</td>
+                                <td>{{ log.date }}</td>
+                                <td>{{ log.check_in }}</td>
+                                <td>{{ log.check_out or 'N/A' }}</td>
+                                <td>{{ log.total_hours }}</td>
+                                <td>
+                                    {% if ' ' in (log.location|string) %}
+                                        <!-- Likely coordinates -->
+                                        <a href="https://maps.google.com/?q={{ log.location }}" target="_blank" style="color:var(--primary); text-decoration:underline;">Map View</a>
+                                        <br><small>{{ log.location }}</small>
+                                    {% else %}
+                                        {{ log.location or '-' }}
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr><td colspan="6">No attendance logs found for the selected dates.</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+            </div>
+        </div>
+    </div>
+</body>
+</html>

@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Alerts - Smart Farm Monitoring</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="dashboard-container">
+        <!-- Sidebar -->
+        <div class="sidebar glass-panel">
+            <h2><img src="{{ url_for('static', filename='green_glass_decorative.png') }}" alt="logo"> Farm<span>Sync</span></h2>
+            <ul>
+                <li><a href="/">Dashboard</a></li>
+                <li><a href="/farmers">Farmers</a></li>
+                <li><a href="/camera">Camera Feed</a></li>
+                <li><a href="/attendance">Attendance</a></li>
+                <li><a href="/attendance_report">Attendance Report</a></li>
+                <li><a href="/tasks">Tasks</a></li>
+                <li class="active"><a href="/alerts">Alerts</a></li>
+            </ul>
+        </div>
+        <!-- Main Content -->
+        <div class="main-content">
+            <header class="glass-panel">
+                <h1>Animal Alerts</h1>
+                <p>History of animal detections and threats</p>
+            </header>
+            <div class="content-grid" style="grid-template-columns: 1fr;">
+                <div class="table-section glass-panel" id="alerts-section">
+                    <h3>Animal Detections</h3>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Animal</th>
+                                <th>Confidence</th>
+                                <th>Time</th>
+                                <th>Image</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for log in recent_logs %}
+                            <tr>
+                                <td>{{ log.animal_type | capitalize }}</td>
+                                <td>{{ (log.confidence * 100) | round(1) }}%</td>
+                                <td>{{ log.timestamp }}</td>
+                                <td><a href="/{{ log.image_path }}" target="_blank">View</a></td>
+                            </tr>
+                            {% else %}
+                            <tr><td colspan="4">No recent detections</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

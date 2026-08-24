@@ -1,0 +1,85 @@
+# How to Run the Animal Detection Project
+
+## Prerequisites
+- Python 3.12 (as requested, with appropriate dependencies)
+- Access to a web camera
+
+## Setup Instructions
+
+1. **Activate the Virtual Environment**
+   If you have a virtual environment set up (e.g., `env`), activate it:
+   - On Windows: `env\Scripts\activate`
+   - On macOS/Linux: `source env/bin/activate`
+
+2. **Install Dependencies**
+   Run the following command to install all the required libraries from `requirements.txt`:
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+3. **Run the Application**
+   Start the Flask server by running:
+   ```bash
+   python application.py
+   ```
+
+4. **Access the Web Interface**
+   Open your web browser and go to:
+   [http://127.0.0.1:5000](http://127.0.0.1:5000)
+
+## Email Configuration
+The system strictly uses the following email addresses for automatic alert notifications:
+- **Sender Account:** `2ktamilstatus@gmail.com`
+- **Receiver Accounts:**
+  - `hariharan4814@gmail.com`
+  - `hariharanb.inbox@gmail.com`
+
+## Features
+- Object/Animal detection using YOLOv8.
+- Stream adjustment (Exposure, Contrast, Flipping).
+- Email notifications upon dangerous animal detection.
+- Sound alerts using pygame.
+- Premium light-themed purple User Interface.
+
+
+# Moderate-danger animals
+    'elephant': 'CAUTION: Large and potentially dangerous animal detected!',
+    'buffalo': 'WARNING: Aggressive and territorial animal detected!',
+    'rhino': 'CAUTION: Large and potentially aggressive animal detected!',
+    'hippopotamus': 'WARNING: Highly aggressive and territorial animal detected!',
+    'gorilla': 'CAUTION: Large primate detected; avoid sudden movements!',
+    'chimpanzee': 'CAUTION: Potentially aggressive primate detected!',
+    'wild boar': 'WARNING: Aggressive animal detected!',
+
+    # Less-dangerous animals
+    'deer': 'NOTE: Non-threatening animal detected.',
+    'rabbit': 'NOTE: Harmless animal detected.',
+    'monkey': 'WARNING: Mischievous animal detected!',
+    'peacock': 'NOTE: Harmless bird detected.',
+    'parrot': 'NOTE: Harmless bird detected.',
+    'squirrel': 'NOTE: Harmless small mammal detected.',
+    'penguin': 'NOTE: Non-threatening bird detected.',
+
+    # Aquatic animals
+    'dolphin': 'NOTE: Intelligent and non-threatening marine mammal detected.',
+    'whale': 'CAUTION: Large marine mammal detected; stay cautious!',
+    'octopus': 'WARNING: Potentially dangerous marine creature detected!',
+    'jellyfish': 'WARNING: Stinging aquatic creature detected!',
+    'stingray': 'WARNING: Potentially dangerous marine creature detected!',
+
+    # Others
+    'bat': 'CAUTION: Flying mammal detected; potential disease carrier!',
+    'owl': 'NOTE: Nocturnal bird detected.',
+    'fox': 'CAUTION: Small predator detected!',
+    'raccoon': 'NOTE: Non-threatening scavenger detected.',
+    'kangaroo': 'CAUTION: Large marsupial detected; keep your distance!',
+    'camel': 'NOTE: Non-threatening animal detected.',
+    'koala': 'NOTE: Harmless marsupial detected.',
+
+     self.ANIMAL_CLASSES = [
+            'cat', 'dog', 'horse', 'sheep', 'cow', 'elephant', 'bear', 
+            'zebra', 'giraffe', 'lion', 'tiger', 'cheetah', 'monkey', 
+            'leopard', 'wolf', 'fox', 'deer', 'hippo', 'hyena', 
+            'jackal', 'kangaroo', 'squirrel', 'penguin', 'eagle', 
+            'owl', 'snake', 'crocodile', 'mouse', 'rat'
+        ]

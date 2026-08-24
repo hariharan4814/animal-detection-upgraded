@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Farmer Management - Smart Farm Monitoring</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="dashboard-container">
+        <!-- Sidebar -->
+        <div class="sidebar glass-panel">
+            <h2><img src="{{ url_for('static', filename='green_glass_decorative.png') }}" alt="logo"> Farm<span>Sync</span></h2>
+            <ul>
+                <li><a href="/">Dashboard</a></li>
+                <li class="active"><a href="/farmers">Farmers</a></li>
+                <li><a href="/camera">Camera Feed</a></li>
+                <li><a href="/attendance">Attendance</a></li>
+                <li><a href="/attendance_report">Attendance Report</a></li>
+                <li><a href="/tasks">Tasks</a></li>
+                <li><a href="/alerts">Alerts</a></li>
+            </ul>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <header class="glass-panel">
+                <h1>Farmer Management</h1>
+                <p>Add, remove, and manage your farm workforce</p>
+            </header>
+
+            <div class="content-grid" style="grid-template-columns: 1fr;">
+                
+                <!-- Add Farmer Form -->
+                <div class="table-section glass-panel">
+                    <h3>Add New Farmer</h3>
+                    <form action="/add_farmer" method="POST" class="inline-form add-task-form" style="display:flex; gap:15px; flex-wrap:wrap;">
+                        <input type="text" name="name" placeholder="Full Name" required style="flex:1; min-width:150px;">
+                        <input type="text" name="phone" placeholder="Phone Number" required style="flex:1; min-width:150px;">
+                        <input type="email" name="email" placeholder="Email Address" required style="flex:1; min-width:150px;">
+                        <input type="text" name="field" placeholder="Assigned Field / Location" required style="flex:1; min-width:150px;">
+                        <button type="submit" class="btn btn-primary">Add Farmer</button>
+                    </form>
+                </div>
+
+                <!-- Farmers List -->
+                <div class="table-section glass-panel">
+                    <h3>Current Workforce</h3>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Phone</th>
+                                <th>Email</th>
+                                <th>Location/Field</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for f in farmers %}
+                            <tr>
+                                <td>{{ f.name }}</td>
+                                <td>{{ f.phone }}</td>
+                                <td>{{ f.email or '-' }}</td>
+                                <td>{{ f.field }}</td>
+                                <td>
+                                    <form action="/delete_farmer/{{ f.id }}" method="POST" style="margin:0;">
+                                        <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Are you sure you want to remove this farmer?');">Remove</button>
+                                    </form>
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr><td colspan="5">No farmers registered</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+            </div>
+        </div>
+    </div>
+</body>
+</html>

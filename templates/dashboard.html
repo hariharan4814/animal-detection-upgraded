@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Farm Monitoring Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="dashboard-container">
+        <!-- Sidebar -->
+        <div class="sidebar glass-panel">
+            <h2><img src="{{ url_for('static', filename='green_glass_decorative.png') }}" alt="logo"> Farm<span>Sync</span></h2>
+            <ul>
+                <li class="active"><a href="/">Dashboard</a></li>
+                <li><a href="/farmers">Farmers</a></li>
+                <li><a href="/camera">Camera Feed</a></li>
+                <li><a href="/attendance">Attendance</a></li>
+                <li><a href="/attendance_report">Attendance Report</a></li>
+                <li><a href="/tasks">Tasks</a></li>
+                <li><a href="/alerts">Alerts</a></li>
+            </ul>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <header class="glass-panel">
+                <h1>Dashboard Overview</h1>
+                <p>Real-time monitoring and management</p>
+            </header>
+
+            <!-- Top Stats -->
+            <div class="stats-grid">
+                <div class="stat-card glass-panel">
+                    <h3>Total Farmers</h3>
+                    <p class="stat-number">{{ total_farmers }}</p>
+                </div>
+                <div class="stat-card glass-panel">
+                    <h3>Today's Attendance</h3>
+                    <p class="stat-number">{{ today_attendance }}</p>
+                </div>
+                <div class="stat-card glass-panel alert-stat">
+                    <h3>Animal Alerts Today</h3>
+                    <p class="stat-number">{{ alerts_today }}</p>
+                </div>
+                <div class="stat-card glass-panel">
+                    <h3>Completed Tasks</h3>
+                    <p class="stat-number">{{ completed_tasks }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

@@ -1,0 +1,9 @@
+# FarmSync Django Backend Foundation Dependencies
+# Phase: STEP 1 - Foundation & Directory Setup
+
+Django>=5.0,<5.3
+djangorestframework>=3.14.0
+django-cors-headers>=4.3.0
+python-dotenv>=1.0.0
+asgiref>=3.8.0
+sqlparse>=0.5.0

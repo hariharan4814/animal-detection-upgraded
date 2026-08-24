@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Attendance - Smart Farm Monitoring</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="dashboard-container">
+        <!-- Sidebar -->
+        <div class="sidebar glass-panel">
+            <h2><img src="{{ url_for('static', filename='green_glass_decorative.png') }}" alt="logo"> Farm<span>Sync</span></h2>
+            <ul>
+                <li><a href="/">Dashboard</a></li>
+                <li><a href="/farmers">Farmers</a></li>
+                <li><a href="/camera">Camera Feed</a></li>
+                <li class="active"><a href="/attendance">Attendance</a></li>
+                <li><a href="/attendance_report">Attendance Report</a></li>
+                <li><a href="/tasks">Tasks</a></li>
+                <li><a href="/alerts">Alerts</a></li>
+            </ul>
+        </div>
+        <!-- Main Content -->
+        <div class="main-content">
+            <header class="glass-panel">
+                <h1>Attendance Management</h1>
+                <p>Record and view today's check-ins and check-outs</p>
+            </header>
+            <div class="content-grid" style="grid-template-columns: 1fr;">
+                <div class="table-section glass-panel" id="attendance-section">
+                    <h3>Attendance Logs</h3>
+                    <div class="action-bar">
+                        <form action="/check_in" method="POST" class="inline-form" id="form-check-in">
+                            <input type="hidden" name="device_location" id="loc-in">
+                            <select name="farmer_id" required>
+                                <option value="" disabled selected>Select Farmer</option>
+                                {% for f in farmers %}
+                                <option value="{{ f.id }}">{{ f.name }}</option>
+                                {% endfor %}
+                            </select>
+                            <button type="button" class="btn btn-success" onclick="submitWithLocation('form-check-in', 'loc-in')">Check In</button>
+                        </form>
+                        <form action="/check_out" method="POST" class="inline-form" id="form-check-out">
+                            <input type="hidden" name="device_location" id="loc-out">
+                            <select name="farmer_id" required>
+                                <option value="" disabled selected>Select Farmer</option>
+                                {% for f in farmers %}
+                                <option value="{{ f.id }}">{{ f.name }}</option>
+                                {% endfor %}
+                            </select>
+                            <button type="button" class="btn btn-danger" onclick="submitWithLocation('form-check-out', 'loc-out')">Check Out</button>
+                        </form>
+                    </div>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Location</th>
+                                <th>Date</th>
+                                <th>Check In</th>
+                                <th>Check Out</th>
+                                <th>Hours</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for att in attendance_logs %}
+                            <tr>
+                                <td>{{ att.name }}</td>
+                                <td>{{ att.location or '-' }}</td>
+                                <td>{{ att.date }}</td>
+                                <td>{{ att.check_in }}</td>
+                                <td>{{ att.check_out or '-' }}</td>
+                                <td>{{ att.total_hours }}</td>
+                            </tr>
+                            {% else %}
+                            <tr><td colspan="5">No attendance logs</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script>
+        function submitWithLocation(formId, inputId) {
+            const form = document.getElementById(formId);
+            const input = document.getElementById(inputId);
+            
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    function(position) {
+                        input.value = position.coords.latitude + ", " + position.coords.longitude;
+                        form.submit();
+                    },
+                    function(error) {
+                        console.warn("Geolocation error:", error);
+                        form.submit();
+                    },
+                    { timeout: 5000 }
+                );
+            } else {
+                form.submit();
+            }
+        }
+    </script>
+</body>
+</html>
