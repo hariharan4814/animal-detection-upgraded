@@ -20,9 +20,9 @@ urlpatterns = [
     path('api/v1/settings/', include('apps.settings_app.urls')),
     path('api/v1/dashboard/', include('apps.dashboard.urls')),
     path('api/v1/farmers/', include('apps.farmers.urls')),
+    path('api/v1/attendance/', include('apps.attendance.urls')),
 
     # Future REST API Modular Routes (To be activated in upcoming migration steps):
-    # path('api/v1/attendance/', include('apps.attendance.urls')),
     # path('api/v1/tasks/', include('apps.tasks.urls')),
     # path('api/v1/detection/', include('apps.detection.urls')),
     # path('api/v1/alerts/', include('apps.alerts.urls')),
