@@ -59,5 +59,5 @@ python manage.py check
 
 ## 3. Architecture Rules
 1. **API-First**: All backend views return JSON payloads. No Django HTML templates or direct Jinja rendering.
-2. **Decoupled Frontend**: All external clients (SPAs, mobile apps, Lovable AI frontends) authenticate via JWT and interact through `/api/...`.
+2. **Decoupled Frontend**: All external clients (SPAs, mobile apps, modern web frontends) authenticate via JWT and interact through `/api/...`.
 3. **Write-Only Secrets**: Sensitive credentials (e.g. SMTP passwords) are never returned across the wire.

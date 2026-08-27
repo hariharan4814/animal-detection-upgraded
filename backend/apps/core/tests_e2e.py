@@ -285,11 +285,11 @@ class EndToEndIntegrationAndSecurityTests(TestCase):
         self.assertEqual(alert.alert_type, 'Email + Buzzer')
         self.assertEqual(alert.animal_log_id, log.id)
 
-        # 4. Verify Alerts API is read-only (GET OK, POST/PUT/DELETE return 405 Method Not Allowed)
+        # 4. Verify Alerts API behavior (GET OK, POST returns 405, staff DELETE returns 200)
         alerts_url = reverse('alerts:alert_list')
         self.assertEqual(self.client.get(alerts_url).status_code, status.HTTP_200_OK)
         self.assertEqual(self.client.post(alerts_url, {'alert_type': 'Custom'}).status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
-        self.assertEqual(self.client.delete(reverse('alerts:alert_detail', kwargs={'pk': alert.id})).status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
+        self.assertEqual(self.client.delete(reverse('alerts:alert_detail', kwargs={'pk': alert.id})).status_code, status.HTTP_200_OK)
 
     # =========================================================================
     # WORKFLOW F: SECURITY HARDENING & SECRET PROTECTION

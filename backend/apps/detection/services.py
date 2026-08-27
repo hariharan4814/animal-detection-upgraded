@@ -1,15 +1,15 @@
 """
 Detection Domain Services.
-Orchestrates AI inference, snapshot persistence, AnimalLog record creation, and Alert triggering.
+Orchestrates AI inference, snapshot persistence, AnimalLog record creation,
+multi-tier threat classification, cooldown evaluation, and Alert triggering.
 """
 
 import os
 import time
 import logging
 from pathlib import Path
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Tuple
 import numpy as np
-from datetime import datetime
 
 from django.conf import settings
 from django.utils import timezone
@@ -22,12 +22,43 @@ except ImportError:
 from apps.settings_app.models import ProjectSettings
 from apps.detection.models import AnimalLog
 from apps.alerts.models import Alert
-from services.yolo import get_model, is_model_available, run_inference, ANIMAL_CLASSES
+from services.yolo import is_model_available, run_inference, ANIMAL_CLASSES
+from services.threat_classification import (
+    ThreatLevel,
+    classify_animal,
+    get_threat_score,
+    calculate_highest_threat,
+)
+from services.notifications.service import NotificationService
 
 logger = logging.getLogger(__name__)
 
-# In-memory alert cooldown tracker for fast runtime checks: {animal_type: last_alert_timestamp}
-_last_notification_timestamps: Dict[str, float] = {}
+# In-memory alert cooldown tracker: {(animal_type, threat_tier): last_alert_epoch_timestamp}
+_last_notification_timestamps: Dict[Tuple[str, str], float] = {}
+
+
+def check_and_update_cooldown(
+    animal_type: str,
+    threat_tier: str,
+    cooldown_window: int
+) -> bool:
+    """
+    Evaluates whether an alert should be triggered based on cooldown window.
+    Keys on (animal_type, threat_tier) to ensure low-threat events never suppress high-threat alerts.
+    """
+    key = (animal_type.strip().lower(), threat_tier.strip().upper())
+    now_epoch = time.time()
+    last_time = _last_notification_timestamps.get(key, 0.0)
+
+    if (now_epoch - last_time) >= cooldown_window:
+        _last_notification_timestamps[key] = now_epoch
+        return True
+    return False
+
+
+def clear_cooldown_cache() -> None:
+    """Resets in-memory notification timestamps (useful for tests)."""
+    _last_notification_timestamps.clear()
 
 
 class DetectionService:
@@ -50,6 +81,7 @@ class DetectionService:
             "alert_cooldown_seconds": project_settings.alert_cooldown_seconds,
             "audio_buzzer_enabled": project_settings.audio_buzzer_enabled,
             "email_alerts_enabled": project_settings.email_alerts_enabled,
+            "attach_alert_image_to_email": project_settings.attach_alert_image_to_email,
             "supported_classes_count": len(ANIMAL_CLASSES),
             "supported_classes": ANIMAL_CLASSES
         }
@@ -68,14 +100,16 @@ class DetectionService:
     def analyze_image_bytes(
         cls,
         image_bytes: bytes,
-        field_name: str = "Main Field"
+        field_name: str = "Main Field",
+        dispatch_sync: bool = False
     ) -> Dict[str, Any]:
         """
         Processes an uploaded image through the YOLO detection pipeline.
 
         :param image_bytes: Raw binary bytes of an image (JPEG, PNG).
         :param field_name: Agricultural sector or camera location string.
-        :return: Structured detection result dictionary including any created log records.
+        :param dispatch_sync: If True, dispatches notification synchronously (useful for test assertions).
+        :return: Structured detection result dictionary including any created log and alert records.
         """
         project_settings = ProjectSettings.get_settings()
 
@@ -103,7 +137,6 @@ class DetectionService:
             try:
                 pil_image = Image.open(io.BytesIO(image_bytes)).convert('RGB')
                 image_array = np.array(pil_image)
-                # Convert RGB to BGR for standard cv2 drawing compatibility if available
                 if cv2 is not None:
                     image_array = cv2.cvtColor(image_array, cv2.COLOR_RGB2BGR)
             except Exception as decode_err:
@@ -117,14 +150,26 @@ class DetectionService:
             annotate=True
         )
 
-        highest_animal = inference_result.get("highest_threat_animal")
-        highest_level = inference_result.get("highest_threat_level")
-        highest_conf = inference_result.get("highest_conf", 0.0)
         detections = inference_result.get("detections", [])
+
+        # Ensure threat classification on all parsed detections
+        for det in detections:
+            label = det.get('label') or det.get('animal')
+            conf = det.get('confidence', 0.0)
+            threat_upper = classify_animal(label, conf, custom_overrides=project_settings.threat_level_overrides)
+            det['threat_tier'] = threat_upper
+            det['threat_level'] = threat_upper.lower()
+
+        highest_animal, highest_tier, highest_conf = calculate_highest_threat(detections)
+        highest_tier = highest_tier or (inference_result.get("highest_threat_level") or "MEDIUM").upper()
+        if highest_animal is None:
+            highest_animal = inference_result.get("highest_threat_animal")
+            highest_conf = inference_result.get("highest_conf", 0.0)
 
         animal_log_data = None
         alert_triggered = False
         alert_type = None
+        created_alert_id = None
 
         if highest_animal:
             now_dt = timezone.now()
@@ -147,10 +192,11 @@ class DetectionService:
                 im = Image.fromarray(annotated_frame)
                 im.save(str(full_image_path))
 
-            # Create persistent AnimalLog record
+            # Create persistent AnimalLog record with classified threat_level
             animal_log = AnimalLog.objects.create(
                 animal_type=highest_animal,
                 confidence=highest_conf,
+                threat_level=highest_tier,
                 timestamp=now_dt,
                 field=field_name or "Main Field",
                 image_path=relative_storage_path
@@ -160,41 +206,98 @@ class DetectionService:
                 "id": animal_log.id,
                 "animal_type": animal_log.animal_type,
                 "confidence": animal_log.confidence,
+                "threat_level": animal_log.threat_level,
                 "timestamp": animal_log.timestamp.isoformat(),
                 "field": animal_log.field,
                 "image_path": animal_log.image_path
             }
 
-            # Cooldown evaluation and Alert creation
-            last_alert_time = _last_notification_timestamps.get(highest_animal, 0.0)
+            # Cooldown evaluation
             cooldown_window = project_settings.alert_cooldown_seconds
+            cooldown_passed = check_and_update_cooldown(highest_animal, highest_tier, cooldown_window)
 
-            if (current_epoch - last_alert_time) >= cooldown_window:
-                if highest_level == 'high':
-                    alert_type = 'Email + Buzzer'
-                elif highest_level == 'medium':
-                    alert_type = 'Email'
-                else:
-                    alert_type = 'Log Only'
+            # Determine alert dispatch policy
+            if highest_tier == 'HIGH':
+                alert_type = 'Email + Buzzer'
+            elif highest_tier == 'MEDIUM':
+                alert_type = 'Email'
+            else:
+                alert_type = 'Log Only'
 
-                Alert.objects.create(
+            email_sent = False
+            email_attempted = False
+            email_status = "none"
+
+            if cooldown_passed:
+                alert = Alert.objects.create(
                     animal_log=animal_log,
+                    threat_level=highest_tier,
                     alert_type=alert_type,
                     status='Triggered'
                 )
-                _last_notification_timestamps[highest_animal] = current_epoch
+                created_alert_id = alert.id
                 alert_triggered = True
 
+                # Dispatch notifications
+                dispatch_res = NotificationService.dispatch_threat_alert(
+                    alert_id=alert.id,
+                    animal_name=highest_animal,
+                    threat_level=highest_tier,
+                    confidence=highest_conf,
+                    detected_at=now_dt,
+                    camera_name=field_name or "Main Field",
+                    image_relative_path=relative_storage_path
+                )
+                email_sent = bool(dispatch_res.get("email_sent", False))
+                email_attempted = bool(
+                    project_settings.email_alerts_enabled and (highest_tier in ['HIGH', 'MEDIUM'])
+                )
+                if not project_settings.email_alerts_enabled:
+                    email_status = "disabled"
+                elif email_sent:
+                    email_status = "sent"
+                elif email_attempted:
+                    email_status = "failed"
+                else:
+                    email_status = "none"
+            else:
+                email_attempted = False
+                email_sent = False
+                email_status = "cooldown"
+
+        animal_detected = bool(highest_animal)
+        if animal_detected:
+            if not project_settings.email_alerts_enabled:
+                message = f"Animal Detected: {highest_animal}. Detection has been recorded."
+            elif email_sent:
+                message = f"Animal Detected: {highest_animal}. Mail has been sent successfully."
+            elif email_attempted:
+                message = f"Animal Detected: {highest_animal}. Detection was recorded, but the email could not be sent."
+            else:
+                message = f"Animal Detected: {highest_animal}. Detection recorded."
+        else:
+            message = "No hazardous animals detected in frame."
+            email_status = "none"
+
         return {
+            "success": True,
             "detection_enabled": True,
+            "animal_detected": animal_detected,
             "detections_count": len(detections),
             "detections": detections,
             "highest_threat_animal": highest_animal,
-            "highest_threat_level": highest_level,
+            "highest_threat_level": highest_tier.lower() if highest_tier else None,
+            "highest_threat_tier": highest_tier,
             "highest_confidence": highest_conf,
             "animal_log": animal_log_data,
             "alert_triggered": alert_triggered,
-            "alert_type": alert_type
+            "alert_type": alert_type,
+            "alert_id": created_alert_id,
+            "email_notifications_enabled": project_settings.email_alerts_enabled,
+            "email_attempted": email_attempted,
+            "email_sent": email_sent,
+            "email_status": email_status,
+            "message": message,
         }
 
 
@@ -207,7 +310,7 @@ class VideoStreamService:
     @classmethod
     def generate_frames(cls, max_frames: int | None = None):
         """
-        Yields multipart HTTP MJPEG frame chunks.
+        Yields multipart HTTP MJPEG frame chunks continuously.
         Safely generates simulated canvas if physical camera hardware is unavailable.
         """
         project_settings = ProjectSettings.get_settings()
@@ -225,11 +328,9 @@ class VideoStreamService:
                 cap = None
 
         frames_yielded = 0
-        default_limit = 100 if max_frames is None else max_frames
 
         try:
-            while frames_yielded < default_limit:
-                # Dynamic settings lookup on every frame
+            while max_frames is None or frames_yielded < max_frames:
                 project_settings = ProjectSettings.get_settings()
 
                 if cap is not None and cap.isOpened():
@@ -251,15 +352,14 @@ class VideoStreamService:
                     else:
                         frame_bytes = b''
                 else:
-                    # Generate synthetic placeholder frame for headless / non-hardware environments
                     synthetic_frame = np.zeros((480, 640, 3), dtype=np.uint8)
                     if cv2 is not None:
                         cv2.putText(
                             synthetic_frame,
-                            "FarmSync Camera Stream Active",
-                            (80, 240),
+                            "FarmSync Live Camera Stream Active",
+                            (60, 240),
                             cv2.FONT_HERSHEY_SIMPLEX,
-                            0.8,
+                            0.7,
                             (0, 255, 128),
                             2
                         )
@@ -267,11 +367,14 @@ class VideoStreamService:
                         frame_bytes = buffer.tobytes()
                     else:
                         frame_bytes = b''
+                    time.sleep(0.04)
 
                 yield (b'--frame\r\n'
                        b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
                 frames_yielded += 1
-                time.sleep(0.05)
         finally:
             if cap is not None:
-                cap.release()
+                try:
+                    cap.release()
+                except Exception:
+                    pass

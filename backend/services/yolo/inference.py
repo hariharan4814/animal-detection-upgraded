@@ -13,23 +13,32 @@ except ImportError:
     cv2 = None
 
 from services.yolo.loader import get_model
+from services.threat_classification import (
+    ThreatLevel,
+    classify_animal,
+    get_threat_score,
+    DEFAULT_ANIMAL_THREAT_RULES,
+)
 
 logger = logging.getLogger(__name__)
 
-# Verified 29 animal target classes from legacy application
+# Verified animal target classes from legacy application and COCO dataset
 ANIMAL_CLASSES = [
-    'cat', 'dog', 'horse', 'sheep', 'cow', 'elephant', 'bear',
+    'bird', 'cat', 'dog', 'horse', 'sheep', 'cow', 'elephant', 'bear',
     'zebra', 'giraffe', 'lion', 'tiger', 'cheetah', 'monkey',
     'leopard', 'wolf', 'fox', 'deer', 'hippo', 'hyena',
     'jackal', 'kangaroo', 'squirrel', 'penguin', 'eagle',
     'owl', 'snake', 'crocodile', 'mouse', 'rat'
 ]
 
-# Color palette for visual bounding box rendering
+# Color palette for visual bounding box rendering (normalized lowercase or uppercase keys)
 _CLASS_COLORS = {
     'high': (0, 0, 255),       # Red for high threat
+    'HIGH': (0, 0, 255),
     'medium': (0, 165, 255),   # Orange for medium threat
+    'MEDIUM': (0, 165, 255),
     'low': (0, 255, 0),        # Green for low threat
+    'LOW': (0, 255, 0),
 }
 
 
@@ -105,31 +114,31 @@ def run_inference(
                 # Filter strictly by verified animal classes and minimum confidence
                 if label in ANIMAL_CLASSES and conf >= confidence_threshold:
                     x1, y1, x2, y2 = map(int, box.xyxy[0])
-                    threat_level = threat_mapping.get(label, 'low').lower()
-                    if threat_level not in threat_hierarchy:
-                        threat_level = 'low'
+                    threat_tier = classify_animal(label, conf, custom_overrides=threat_mapping)
+                    threat_lower = threat_tier.lower()
 
                     detections.append({
                         "label": label,
                         "confidence": round(conf, 4),
-                        "threat_level": threat_level,
+                        "threat_level": threat_lower,
+                        "threat_tier": threat_tier,
                         "box": [x1, y1, x2, y2]
                     })
 
                     # Evaluate highest threat priority
-                    current_threat_score = threat_hierarchy.get(threat_level, 1)
-                    highest_threat_score = threat_hierarchy.get(highest_threat_level, 0) if highest_threat_level else 0
+                    current_threat_score = get_threat_score(threat_tier)
+                    highest_threat_score = get_threat_score(highest_threat_level) if highest_threat_level else 0
 
                     if current_threat_score > highest_threat_score or (current_threat_score == highest_threat_score and conf > highest_conf):
                         highest_threat_animal = label
-                        highest_threat_level = threat_level
+                        highest_threat_level = threat_lower
                         highest_conf = conf
 
                     # Annotate frame if OpenCV is available
                     if annotate and cv2 is not None:
-                        color = _CLASS_COLORS.get(threat_level, (0, 255, 0))
+                        color = _CLASS_COLORS.get(threat_tier, (0, 255, 0))
                         cv2.rectangle(annotated_frame, (x1, y1), (x2, y2), color, 2)
-                        label_text = f"{label.capitalize()} {conf:.2f} [{threat_level.upper()}]"
+                        label_text = f"{label.capitalize()} {conf:.2f} [{threat_tier}]"
                         cv2.putText(
                             annotated_frame,
                             label_text,

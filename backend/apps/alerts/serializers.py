@@ -1,16 +1,18 @@
 """
 Serializers for FarmSync Alerts & Notification Module.
-Provides read-only serialization for Alert records, associated detection context, and query filter validation.
+Provides serialization for Alert records, threat classification tier,
+associated detection context, image download URLs, and query filter validation.
 """
 
 from rest_framework import serializers
+from django.urls import reverse
 from apps.alerts.models import Alert
 
 
 class AlertSerializer(serializers.ModelSerializer):
     """
-    Read-only serializer for Alert records.
-    Exposes notification metadata and associated animal detection context.
+    Serializer for Alert records.
+    Exposes threat level, notification metadata, associated animal detection context, and download URL.
     """
     animal_type = serializers.CharField(
         source='animal_log.animal_type',
@@ -42,6 +44,9 @@ class AlertSerializer(serializers.ModelSerializer):
         default=None,
         help_text="Exact timestamp of the animal detection event"
     )
+    download_url = serializers.SerializerMethodField(
+        help_text="Direct endpoint URL to download the evidence snapshot image"
+    )
 
     class Meta:
         model = Alert
@@ -50,11 +55,15 @@ class AlertSerializer(serializers.ModelSerializer):
             'animal_log',
             'animal_type',
             'confidence',
+            'threat_level',
             'field',
             'image_path',
+            'download_url',
             'detection_timestamp',
             'alert_type',
             'status',
+            'email_sent',
+            'buzzer_triggered',
             'created_at',
             'updated_at',
         ]
@@ -63,14 +72,23 @@ class AlertSerializer(serializers.ModelSerializer):
             'animal_log',
             'animal_type',
             'confidence',
+            'threat_level',
             'field',
             'image_path',
+            'download_url',
             'detection_timestamp',
             'alert_type',
             'status',
+            'email_sent',
+            'buzzer_triggered',
             'created_at',
             'updated_at',
         ]
+
+    def get_download_url(self, obj) -> str | None:
+        if obj.animal_log and obj.animal_log.image_path:
+            return f"/api/v1/alerts/{obj.id}/download/"
+        return None
 
 
 class AlertFilterSerializer(serializers.Serializer):
@@ -79,6 +97,7 @@ class AlertFilterSerializer(serializers.Serializer):
     """
     VALID_STATUSES = ['Triggered', 'Sent', 'Failed']
     VALID_ALERT_TYPES = ['Email + Buzzer', 'Email', 'Log Only']
+    VALID_THREAT_LEVELS = ['HIGH', 'MEDIUM', 'LOW', 'high', 'medium', 'low']
 
     status = serializers.ChoiceField(
         choices=VALID_STATUSES,
@@ -91,6 +110,12 @@ class AlertFilterSerializer(serializers.Serializer):
         required=False,
         allow_null=True,
         help_text="Filter by notification channel ('Email + Buzzer', 'Email', 'Log Only')"
+    )
+    threat_level = serializers.ChoiceField(
+        choices=VALID_THREAT_LEVELS,
+        required=False,
+        allow_null=True,
+        help_text="Filter by threat level ('HIGH', 'MEDIUM', 'LOW')"
     )
     animal_log_id = serializers.IntegerField(
         required=False,

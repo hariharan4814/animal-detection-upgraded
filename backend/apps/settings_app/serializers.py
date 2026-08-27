@@ -1,10 +1,20 @@
 """
 Serializers for FarmSync Settings Module.
-Enforces write-only sensitive fields, validation constraints, and safe response formats.
+Enforces write-only sensitive fields, validation constraints, safe response formats,
+threat classification rules, and email template customization.
 """
 
 from rest_framework import serializers
-from apps.settings_app.models import EmailSenderConfig, AlertReceiver, ProjectSettings
+from django.template import Template, TemplateSyntaxError, Context
+from django.utils import timezone
+
+from apps.settings_app.models import (
+    EmailSenderConfig,
+    AlertReceiver,
+    ProjectSettings,
+    AnimalThreatRule,
+    ThreatEmailTemplate,
+)
 
 
 class EmailSenderConfigSerializer(serializers.ModelSerializer):
@@ -51,7 +61,6 @@ class EmailSenderConfigSerializer(serializers.ModelSerializer):
         return value
 
     def update(self, instance, validated_data):
-        # If smtp_password was omitted or blank in update request, retain existing password
         password = validated_data.pop('smtp_password', None)
         if password and password.strip():
             instance.smtp_password = password.strip()
@@ -67,6 +76,8 @@ class AlertReceiverSerializer(serializers.ModelSerializer):
     """
     Serializer for managing alert notification recipients.
     """
+    name = serializers.CharField(max_length=150, required=False, allow_blank=True, default='')
+
     class Meta:
         model = AlertReceiver
         fields = [
@@ -90,6 +101,12 @@ class AlertReceiverSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("An alert receiver with this email address already exists.")
         return value
 
+    def validate(self, attrs):
+        if not attrs.get('name'):
+            email = attrs.get('email', '')
+            attrs['name'] = email.split('@')[0].capitalize() if '@' in email else 'Alert Recipient'
+        return attrs
+
 
 class ProjectSettingsSerializer(serializers.ModelSerializer):
     """
@@ -108,6 +125,7 @@ class ProjectSettingsSerializer(serializers.ModelSerializer):
             'detection_enabled',
             'audio_buzzer_enabled',
             'email_alerts_enabled',
+            'attach_alert_image_to_email',
             'threat_level_overrides',
             'created_at',
             'updated_at',
@@ -137,12 +155,170 @@ class ProjectSettingsSerializer(serializers.ModelSerializer):
     def validate_threat_level_overrides(self, value: dict) -> dict:
         if not isinstance(value, dict):
             raise serializers.ValidationError("Threat level overrides must be a dictionary.")
-        valid_tiers = {'high', 'medium', 'low'}
+        valid_tiers = {'high', 'medium', 'low', 'HIGH', 'MEDIUM', 'LOW'}
         for species, tier in value.items():
             if not isinstance(species, str) or not species.strip():
                 raise serializers.ValidationError("Species name in threat level overrides must be a non-empty string.")
-            if not isinstance(tier, str) or tier.lower() not in valid_tiers:
+            if not isinstance(tier, str) or tier.lower() not in {'high', 'medium', 'low'}:
                 raise serializers.ValidationError(
-                    f"Invalid threat level '{tier}' for species '{species}'. Must be one of: {', '.join(valid_tiers)}."
+                    f"Invalid threat level '{tier}' for species '{species}'. Must be one of: HIGH, MEDIUM, LOW."
                 )
         return value
+
+
+class AnimalThreatRuleSerializer(serializers.ModelSerializer):
+    """
+    Serializer for configurable animal threat classification rules.
+    """
+    class Meta:
+        model = AnimalThreatRule
+        fields = [
+            'id',
+            'animal_name',
+            'threat_level',
+            'is_active',
+            'created_at',
+            'updated_at',
+        ]
+        read_only_fields = ['id', 'created_at', 'updated_at']
+
+    def validate_animal_name(self, value: str) -> str:
+        value = value.strip().lower()
+        if not value:
+            raise serializers.ValidationError("Animal name cannot be blank.")
+        query = AnimalThreatRule.objects.filter(animal_name__iexact=value)
+        if self.instance:
+            query = query.exclude(pk=self.instance.pk)
+        if query.exists():
+            raise serializers.ValidationError(f"A threat classification rule for '{value}' already exists.")
+        return value
+
+    def validate_threat_level(self, value: str) -> str:
+        val_upper = value.strip().upper()
+        if val_upper not in {'HIGH', 'MEDIUM', 'LOW'}:
+            raise serializers.ValidationError("Threat level must be one of: HIGH, MEDIUM, LOW.")
+        return val_upper
+
+
+class ThreatEmailTemplateSerializer(serializers.ModelSerializer):
+    """
+    Serializer for managing threat notification email templates with syntax verification.
+    """
+    class Meta:
+        model = ThreatEmailTemplate
+        fields = [
+            'id',
+            'threat_level',
+            'subject_template',
+            'body_template',
+            'is_active',
+            'created_at',
+            'updated_at',
+        ]
+        read_only_fields = ['id', 'created_at', 'updated_at']
+
+    def validate_threat_level(self, value: str) -> str:
+        val_upper = value.strip().upper()
+        if val_upper not in {'HIGH', 'MEDIUM', 'LOW'}:
+            raise serializers.ValidationError("Threat level must be one of: HIGH, MEDIUM, LOW.")
+        return val_upper
+
+    def validate_subject_template(self, value: str) -> str:
+        if not value or not value.strip():
+            raise serializers.ValidationError("Subject template cannot be empty.")
+        try:
+            Template(value)
+        except TemplateSyntaxError as syn_err:
+            raise serializers.ValidationError(f"Invalid Django template syntax in subject: {syn_err}")
+        return value.strip()
+
+    def validate_body_template(self, value: str) -> str:
+        if not value or not value.strip():
+            raise serializers.ValidationError("Body template cannot be empty.")
+        try:
+            Template(value)
+        except TemplateSyntaxError as syn_err:
+            raise serializers.ValidationError(f"Invalid Django template syntax in body: {syn_err}")
+        return value.strip()
+
+
+class EmailTemplatePreviewSerializer(serializers.Serializer):
+    """
+    Serializer for rendering live email template previews without sending real emails.
+    """
+    threat_level = serializers.ChoiceField(
+        choices=['HIGH', 'MEDIUM', 'LOW'],
+        default='HIGH',
+        help_text="Threat level to preview"
+    )
+    subject_template = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        help_text="Optional custom subject template string to test"
+    )
+    body_template = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        help_text="Optional custom body template string to test"
+    )
+    sample_animal_name = serializers.CharField(
+        required=False,
+        default='elephant',
+        help_text="Sample animal species name"
+    )
+    sample_confidence = serializers.FloatField(
+        required=False,
+        default=94.7,
+        help_text="Sample detection confidence percentage"
+    )
+    sample_camera_name = serializers.CharField(
+        required=False,
+        default='Camera 0 (North Perimeter)',
+        help_text="Sample camera or field location"
+    )
+    sample_alert_id = serializers.CharField(
+        required=False,
+        default='DEMO-001',
+        help_text="Sample alert ID"
+    )
+
+    def generate_preview(self) -> dict:
+        data = self.validated_data
+        threat_level = data.get('threat_level', 'HIGH').upper()
+        subject_tpl = data.get('subject_template')
+        body_tpl = data.get('body_template')
+
+        # If custom template not provided in preview request, fetch currently stored template
+        if not subject_tpl or not body_tpl:
+            stored = ThreatEmailTemplate.get_template_for_threat(threat_level)
+            subject_tpl = subject_tpl or stored.subject_template
+            body_tpl = body_tpl or stored.body_template
+
+        now_formatted = timezone.now().strftime('%Y-%m-%d %H:%M:%S')
+
+        context_dict = {
+            'animal_name': data.get('sample_animal_name', 'elephant'),
+            'threat_level': f"{threat_level} THREAT",
+            'confidence': f"{data.get('sample_confidence', 94.7)}",
+            'detected_at': now_formatted,
+            'camera_name': data.get('sample_camera_name', 'Camera 0 (North Perimeter)'),
+            'alert_id': data.get('sample_alert_id', 'DEMO-001'),
+        }
+
+        try:
+            ctx = Context(context_dict)
+            subject = Template(subject_tpl).render(ctx).strip()
+            body = Template(body_tpl).render(ctx).strip()
+            return {
+                "success": True,
+                "threat_level": threat_level,
+                "subject": subject,
+                "body": body,
+                "context": context_dict
+            }
+        except Exception as e:
+            return {
+                "success": False,
+                "error": f"Template rendering error: {str(e)}",
+                "threat_level": threat_level
+            }

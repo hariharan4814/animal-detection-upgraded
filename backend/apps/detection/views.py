@@ -147,6 +147,11 @@ class AnimalLogListView(APIView):
         if animal_type:
             queryset = queryset.filter(animal_type__iexact=animal_type.strip())
 
+        # Filter by threat level
+        threat_level = request.query_params.get('threat_level')
+        if threat_level:
+            queryset = queryset.filter(threat_level=threat_level.strip().upper())
+
         # Filter by field location
         field_param = request.query_params.get('field')
         if field_param:

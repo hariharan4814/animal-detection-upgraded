@@ -61,5 +61,6 @@ class CoreAPITests(TestCase):
         response = self.client.get('/')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertIn(b'FarmSync', response.content)
-        self.assertIn(b'api.js', response.content)
-        self.assertIn(b'app.js', response.content)
+        self.assertIn(b'React 19 + Vite SPA', response.content)
+        self.assertIn(b'Launch FarmSync Console', response.content)
+

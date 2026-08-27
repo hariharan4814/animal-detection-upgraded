@@ -8,8 +8,21 @@ from django.utils import timezone
 
 
 class AnimalLog(models.Model):
+    THREAT_CHOICES = [
+        ('HIGH', 'High Threat'),
+        ('MEDIUM', 'Medium Threat'),
+        ('LOW', 'Low Threat'),
+    ]
+
     animal_type = models.CharField(max_length=100, help_text="Detected animal species (e.g. lion, deer, wolf)")
     confidence = models.FloatField(blank=True, null=True, help_text="Model confidence score between 0.0 and 1.0")
+    threat_level = models.CharField(
+        max_length=10,
+        choices=THREAT_CHOICES,
+        default='MEDIUM',
+        db_index=True,
+        help_text="Assessed animal threat level (HIGH, MEDIUM, LOW)"
+    )
     timestamp = models.DateTimeField(default=timezone.now, help_text="Detection event timestamp")
     field = models.CharField(max_length=150, default='Main Field', help_text="Camera field location")
     image_path = models.CharField(max_length=255, help_text="Relative storage path to captured snapshot image")
@@ -23,4 +36,4 @@ class AnimalLog(models.Model):
 
     def __str__(self):
         conf_str = f" ({self.confidence:.2f})" if self.confidence is not None else ""
-        return f"{self.animal_type.capitalize()}{conf_str} at {self.timestamp.strftime('%Y-%m-%d %H:%M:%S')}"
+        return f"{self.animal_type.capitalize()} [{self.threat_level}]{conf_str} at {self.timestamp.strftime('%Y-%m-%d %H:%M:%S')}"

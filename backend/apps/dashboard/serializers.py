@@ -1,6 +1,6 @@
 """
 Serializers for FarmSync Dashboard Module.
-Defines explicit read-only contracts for summary metrics and activity feeds.
+Defines explicit read-only contracts for summary metrics, threat breakdowns, and activity feeds.
 """
 
 from rest_framework import serializers
@@ -24,12 +24,18 @@ class TasksMetricSerializer(serializers.Serializer):
 class DetectionsMetricSerializer(serializers.Serializer):
     detections_today = serializers.IntegerField(help_text="Number of detections logged today")
     total_detections = serializers.IntegerField(help_text="Total lifetime detections logged")
+    high_threat_detections = serializers.IntegerField(required=False, default=0)
+    medium_threat_detections = serializers.IntegerField(required=False, default=0)
+    low_threat_detections = serializers.IntegerField(required=False, default=0)
 
 
 class AlertsMetricSerializer(serializers.Serializer):
     alerts_today = serializers.IntegerField(help_text="Number of alerts triggered today")
     total_alerts = serializers.IntegerField(help_text="Total lifetime alerts")
     triggered_alerts = serializers.IntegerField(help_text="Count of alerts with status 'Triggered'")
+    high_threat_alerts = serializers.IntegerField(required=False, default=0)
+    medium_threat_alerts = serializers.IntegerField(required=False, default=0)
+    low_threat_alerts = serializers.IntegerField(required=False, default=0)
 
 
 class DashboardSummarySerializer(serializers.Serializer):
@@ -44,14 +50,17 @@ class DashboardSummarySerializer(serializers.Serializer):
 class RecentAlertItemSerializer(serializers.Serializer):
     id = serializers.IntegerField()
     animal_type = serializers.CharField()
+    threat_level = serializers.CharField(required=False, allow_null=True)
     alert_type = serializers.CharField()
     status = serializers.CharField()
+    image_path = serializers.CharField(required=False, allow_null=True)
     timestamp = serializers.CharField()
 
 
 class RecentDetectionItemSerializer(serializers.Serializer):
     id = serializers.IntegerField()
     animal_type = serializers.CharField()
+    threat_level = serializers.CharField(required=False, allow_null=True)
     confidence = serializers.FloatField(allow_null=True)
     field = serializers.CharField()
     image_path = serializers.CharField()

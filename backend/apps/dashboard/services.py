@@ -21,21 +21,21 @@ class DashboardService:
     @classmethod
     def get_summary_metrics(cls) -> Dict[str, Any]:
         """
-        Computes high-level aggregated metrics across all domain modules.
+        Computes high-level aggregated metrics across all domain modules including threat tier breakdowns.
         Guarantees safe zero-state values when the database is empty.
         """
         # Timezone-aware date calculations
         current_date = timezone.localdate()
         today_start = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0)
 
-        # 1. Farmers Metrics (Legacy-derived)
+        # 1. Farmers Metrics
         total_farmers = Farmer.objects.count()
 
-        # 2. Attendance Metrics (Legacy-derived today_attendance + enhancement total_records)
+        # 2. Attendance Metrics
         today_attendance = Attendance.objects.filter(date=current_date).count()
         total_attendance_records = Attendance.objects.count()
 
-        # 3. Tasks Metrics (Legacy-derived completed_tasks + enhancements)
+        # 3. Tasks Metrics
         total_tasks = Task.objects.count()
         completed_tasks = Task.objects.filter(status='Completed').count()
         pending_tasks = Task.objects.filter(status='Pending').count()
@@ -43,11 +43,17 @@ class DashboardService:
         # 4. Detection Vision Metrics
         detections_today = AnimalLog.objects.filter(timestamp__gte=today_start).count()
         total_detections = AnimalLog.objects.count()
+        high_threat_detections = AnimalLog.objects.filter(threat_level='HIGH').count()
+        medium_threat_detections = AnimalLog.objects.filter(threat_level='MEDIUM').count()
+        low_threat_detections = AnimalLog.objects.filter(threat_level='LOW').count()
 
-        # 5. Alerts Metrics (Legacy-derived alerts_today + enhancements)
+        # 5. Alerts Metrics
         alerts_today = Alert.objects.filter(animal_log__timestamp__gte=today_start).count()
         total_alerts = Alert.objects.count()
         triggered_alerts = Alert.objects.filter(status='Triggered').count()
+        high_threat_alerts = Alert.objects.filter(threat_level='HIGH').count()
+        medium_threat_alerts = Alert.objects.filter(threat_level='MEDIUM').count()
+        low_threat_alerts = Alert.objects.filter(threat_level='LOW').count()
 
         return {
             "date": str(current_date),
@@ -66,11 +72,17 @@ class DashboardService:
             "detections": {
                 "detections_today": detections_today,
                 "total_detections": total_detections,
+                "high_threat_detections": high_threat_detections,
+                "medium_threat_detections": medium_threat_detections,
+                "low_threat_detections": low_threat_detections,
             },
             "alerts": {
                 "alerts_today": alerts_today,
                 "total_alerts": total_alerts,
                 "triggered_alerts": triggered_alerts,
+                "high_threat_alerts": high_threat_alerts,
+                "medium_threat_alerts": medium_threat_alerts,
+                "low_threat_alerts": low_threat_alerts,
             }
         }
 
@@ -88,8 +100,10 @@ class DashboardService:
             recent_alerts.append({
                 "id": alert.id,
                 "animal_type": alert.animal_log.animal_type if alert.animal_log else "Unknown",
+                "threat_level": alert.threat_level,
                 "alert_type": alert.alert_type,
                 "status": alert.status,
+                "image_path": alert.animal_log.image_path if alert.animal_log else None,
                 "timestamp": alert.animal_log.timestamp.isoformat() if (alert.animal_log and alert.animal_log.timestamp) else alert.created_at.isoformat()
             })
 
@@ -100,6 +114,7 @@ class DashboardService:
             recent_detections.append({
                 "id": log.id,
                 "animal_type": log.animal_type,
+                "threat_level": log.threat_level,
                 "confidence": round(log.confidence, 2) if log.confidence is not None else None,
                 "field": log.field,
                 "image_path": log.image_path,

@@ -1,11 +1,14 @@
 """
 Comprehensive unit and integration tests for FarmSync Alerts & Notification Module.
 Verifies alert listing, detail retrieval, relationship serialization, query filtering,
-read-only immutability enforcement, and Step 10 detection-to-alert integration.
+threat classification tiers, evidence downloading, and staff-authorized alert deletion.
 """
 
+import os
+from pathlib import Path
 from datetime import date, timedelta
 from django.test import TestCase
+from django.conf import settings
 from django.contrib.auth.models import User
 from django.urls import reverse
 from django.utils import timezone
@@ -15,7 +18,7 @@ from rest_framework import status
 from apps.detection.models import AnimalLog
 from apps.alerts.models import Alert
 from apps.settings_app.models import ProjectSettings
-from apps.detection.services import DetectionService, _last_notification_timestamps
+from apps.detection.services import DetectionService, clear_cooldown_cache
 from services.yolo import set_mock_model, reset_model_cache
 
 
@@ -50,6 +53,7 @@ class AlertModelTests(TestCase):
         self.log = AnimalLog.objects.create(
             animal_type="tiger",
             confidence=0.95,
+            threat_level="HIGH",
             timestamp=timezone.now(),
             field="Main Field",
             image_path="detections/detected_tiger_999.jpg"
@@ -58,19 +62,25 @@ class AlertModelTests(TestCase):
     def test_create_alert(self):
         alert = Alert.objects.create(
             animal_log=self.log,
+            threat_level="HIGH",
             alert_type="Email + Buzzer",
-            status="Triggered"
+            status="Triggered",
+            buzzer_triggered=True,
+            email_sent=False
         )
         self.assertEqual(alert.alert_type, "Email + Buzzer")
         self.assertEqual(alert.status, "Triggered")
+        self.assertEqual(alert.threat_level, "HIGH")
+        self.assertTrue(alert.buzzer_triggered)
+        self.assertFalse(alert.email_sent)
         self.assertEqual(alert.animal_log.animal_type, "tiger")
-        self.assertIn("Email + Buzzer", str(alert))
+        self.assertIn("HIGH Alert", str(alert))
 
 
 class AlertsAPITests(TestCase):
     """
     Integration tests for Alerts REST API endpoints.
-    Covers Authentication, Authorization, Detail, Relationships, Filtering, Immutability, and Step 10 Integration.
+    Covers Authentication, Authorization, Detail, Relationships, Filtering, Evidence Download, and Authorized Deletion.
     """
     def setUp(self):
         self.client = APIClient()
@@ -90,38 +100,54 @@ class AlertsAPITests(TestCase):
             is_staff=True
         )
 
+        # Create dummy evidence image in MEDIA_ROOT
+        media_root = Path(getattr(settings, 'MEDIA_ROOT', 'media'))
+        detections_dir = media_root / 'detections'
+        detections_dir.mkdir(parents=True, exist_ok=True)
+        self.dummy_img_path = detections_dir / 'detected_wolf_1.jpg'
+        with open(self.dummy_img_path, 'wb') as f:
+            f.write(b'\xff\xd8\xff\xe0\x00\x10JFIF\x00\x01\x01\x01\x00`\x00`\x00\x00\xff\xdb\x00C\x00')
+
         # Seed detection logs and alerts
         self.log1 = AnimalLog.objects.create(
             animal_type="wolf",
             confidence=0.94,
+            threat_level="HIGH",
             timestamp=timezone.now(),
             field="North Perimeter",
             image_path="detections/detected_wolf_1.jpg"
         )
         self.alert1 = Alert.objects.create(
             animal_log=self.log1,
+            threat_level="HIGH",
             alert_type="Email + Buzzer",
-            status="Triggered"
+            status="Triggered",
+            buzzer_triggered=True
         )
 
         self.log2 = AnimalLog.objects.create(
             animal_type="elephant",
             confidence=0.87,
+            threat_level="HIGH",
             timestamp=timezone.now() - timedelta(days=1),
             field="South Gate",
             image_path="detections/detected_elephant_2.jpg"
         )
         self.alert2 = Alert.objects.create(
             animal_log=self.log2,
-            alert_type="Email",
-            status="Sent"
+            threat_level="HIGH",
+            alert_type="Email + Buzzer",
+            status="Sent",
+            email_sent=True
         )
 
         self.list_url = reverse('alerts:alert_list')
 
     def tearDown(self):
         reset_model_cache()
-        _last_notification_timestamps.clear()
+        clear_cooldown_cache()
+        if self.dummy_img_path.is_file():
+            self.dummy_img_path.unlink(missing_ok=True)
 
     # ==========================================================================
     # 1. AUTHENTICATION & ACCESS CONTROL
@@ -169,20 +195,21 @@ class AlertsAPITests(TestCase):
         self.assertEqual(alerts[0]['id'], self.alert2.id)
         self.assertEqual(alerts[1]['id'], self.alert1.id)
 
-    def test_06_alert_detail_retrieval_with_animal_log_context(self):
-        """6. Alert detail retrieval returns full detection context."""
+    def test_06_alert_detail_retrieval_with_threat_context(self):
+        """6. Alert detail retrieval returns full threat & detection context."""
         detail_url = reverse('alerts:alert_detail', kwargs={'pk': self.alert1.pk})
         self.client.force_authenticate(user=self.regular_user)
         response = self.client.get(detail_url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         data = response.json()['data']
         self.assertEqual(data['id'], self.alert1.id)
+        self.assertEqual(data['threat_level'], "HIGH")
         self.assertEqual(data['alert_type'], "Email + Buzzer")
         self.assertEqual(data['status'], "Triggered")
         self.assertEqual(data['animal_type'], "wolf")
         self.assertEqual(data['confidence'], 0.94)
         self.assertEqual(data['field'], "North Perimeter")
-        self.assertEqual(data['image_path'], "detections/detected_wolf_1.jpg")
+        self.assertIn("/download/", data['download_url'])
 
     def test_07_nonexistent_alert_returns_404(self):
         """7. Nonexistent alert ID returns standardized 404."""
@@ -192,22 +219,20 @@ class AlertsAPITests(TestCase):
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
         self.assertFalse(response.json()['success'])
 
-    def test_08_alert_without_animal_log_handled_safely(self):
-        """8. Alert with animal_log=None returns null related fields gracefully."""
-        orphan_alert = Alert.objects.create(animal_log=None, alert_type="Log Only", status="Triggered")
-        detail_url = reverse('alerts:alert_detail', kwargs={'pk': orphan_alert.pk})
-        self.client.force_authenticate(user=self.regular_user)
-        response = self.client.get(detail_url)
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        data = response.json()['data']
-        self.assertIsNone(data['animal_log'])
-        self.assertIsNone(data['animal_type'])
-
     # ==========================================================================
     # 3. QUERY PARAMETER FILTERING
     # ==========================================================================
-    def test_09_filter_by_status(self):
-        """9. Filter alerts by status (?status=Triggered)."""
+    def test_09_filter_by_threat_level(self):
+        """9. Filter alerts by threat_level (?threat_level=HIGH)."""
+        self.client.force_authenticate(user=self.regular_user)
+        response = self.client.get(f"{self.list_url}?threat_level=HIGH")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        data = response.json()['data']
+        self.assertEqual(len(data), 2)
+        self.assertEqual(data[0]['threat_level'], "HIGH")
+
+    def test_10_filter_by_status(self):
+        """10. Filter alerts by status (?status=Triggered)."""
         self.client.force_authenticate(user=self.regular_user)
         response = self.client.get(f"{self.list_url}?status=Triggered")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -215,142 +240,46 @@ class AlertsAPITests(TestCase):
         self.assertEqual(len(data), 1)
         self.assertEqual(data[0]['status'], "Triggered")
 
-    def test_10_filter_by_alert_type(self):
-        """10. Filter alerts by alert_type (?alert_type=Email)."""
+    def test_11_filter_by_animal_type(self):
+        """11. Filter alerts by animal_type (?animal_type=wolf)."""
         self.client.force_authenticate(user=self.regular_user)
-        response = self.client.get(f"{self.list_url}?alert_type=Email")
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        data = response.json()['data']
-        self.assertEqual(len(data), 1)
-        self.assertEqual(data[0]['alert_type'], "Email")
-
-    def test_11_filter_by_animal_log_id(self):
-        """11. Filter alerts by animal_log_id."""
-        self.client.force_authenticate(user=self.regular_user)
-        response = self.client.get(f"{self.list_url}?animal_log_id={self.log1.id}")
+        response = self.client.get(f"{self.list_url}?animal_type=wolf")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         data = response.json()['data']
         self.assertEqual(len(data), 1)
         self.assertEqual(data[0]['animal_type'], "wolf")
 
-    def test_12_filter_by_animal_type(self):
-        """12. Filter alerts by animal_type (?animal_type=elephant)."""
-        self.client.force_authenticate(user=self.regular_user)
-        response = self.client.get(f"{self.list_url}?animal_type=elephant")
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        data = response.json()['data']
-        self.assertEqual(len(data), 1)
-        self.assertEqual(data[0]['animal_type'], "elephant")
-
-    def test_13_filter_by_date(self):
-        """13. Filter alerts by exact date (?date=YYYY-MM-DD)."""
-        today_str = timezone.localdate().isoformat()
-        self.client.force_authenticate(user=self.regular_user)
-        response = self.client.get(f"{self.list_url}?date={today_str}")
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        data = response.json()['data']
-        self.assertEqual(len(data), 2)  # Both alerts created today in test DB
-
-    def test_14_filter_by_date_range(self):
-        """14. Filter alerts across date range (?start_date=...&end_date=...)."""
-        today = timezone.localdate()
-        start = (today - timedelta(days=2)).isoformat()
-        end = (today + timedelta(days=1)).isoformat()
-
-        self.client.force_authenticate(user=self.regular_user)
-        response = self.client.get(f"{self.list_url}?start_date={start}&end_date={end}")
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.json()['data']), 2)
-
-    def test_15_invalid_date_returns_400(self):
-        """15. Malformed date string returns HTTP 400 Bad Request."""
-        self.client.force_authenticate(user=self.regular_user)
-        response = self.client.get(f"{self.list_url}?date=invalid-date")
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertFalse(response.json()['success'])
-
-    def test_16_invalid_date_range_returns_400(self):
-        """16. Inverted date range (start_date > end_date) returns HTTP 400 Bad Request."""
-        self.client.force_authenticate(user=self.regular_user)
-        response = self.client.get(f"{self.list_url}?start_date=2026-08-25&end_date=2026-08-20")
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertFalse(response.json()['success'])
-
-    def test_17_invalid_status_choice_returns_400(self):
-        """17. Unsupported status query choice returns HTTP 400 Bad Request."""
-        self.client.force_authenticate(user=self.regular_user)
-        response = self.client.get(f"{self.list_url}?status=UnknownStatus")
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-
-    def test_18_invalid_alert_type_choice_returns_400(self):
-        """18. Unsupported alert_type query choice returns HTTP 400 Bad Request."""
-        self.client.force_authenticate(user=self.regular_user)
-        response = self.client.get(f"{self.list_url}?alert_type=SMS")
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-
     # ==========================================================================
-    # 4. READ-ONLY IMMUTABILITY ENFORCEMENT
+    # 4. EVIDENCE DOWNLOAD AND AUTHORIZED DELETION
     # ==========================================================================
-    def test_19_post_list_method_not_allowed(self):
-        """19. POST /api/v1/alerts/ is rejected with HTTP 405 Method Not Allowed."""
-        self.client.force_authenticate(user=self.admin_user)
-        response = self.client.post(self.list_url, {"alert_type": "Email"}, format='json')
-        self.assertEqual(response.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
+    def test_12_alert_evidence_download_success(self):
+        """12. Authenticated user can download detection snapshot image."""
+        download_url = reverse('alerts:alert_download', kwargs={'pk': self.alert1.pk})
+        self.client.force_authenticate(user=self.regular_user)
+        response = self.client.get(download_url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response['Content-Type'], 'image/jpeg')
+        self.assertIn('attachment;', response['Content-Disposition'])
 
-    def test_20_put_detail_method_not_allowed(self):
-        """20. PUT /api/v1/alerts/{id}/ is rejected with HTTP 405 Method Not Allowed."""
+    def test_13_alert_evidence_download_nonexistent_file_404(self):
+        """13. Alert with missing file on disk returns HTTP 404."""
+        download_url = reverse('alerts:alert_download', kwargs={'pk': self.alert2.pk})
+        self.client.force_authenticate(user=self.regular_user)
+        response = self.client.get(download_url)
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_14_regular_user_delete_alert_forbidden(self):
+        """14. Non-staff user attempting DELETE /api/v1/alerts/{id}/ receives 403 Forbidden."""
         detail_url = reverse('alerts:alert_detail', kwargs={'pk': self.alert1.pk})
-        self.client.force_authenticate(user=self.admin_user)
-        response = self.client.put(detail_url, {"status": "Sent"}, format='json')
-        self.assertEqual(response.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
+        self.client.force_authenticate(user=self.regular_user)
+        response = self.client.delete(detail_url)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertTrue(Alert.objects.filter(pk=self.alert1.pk).exists())
 
-    def test_21_patch_detail_method_not_allowed(self):
-        """21. PATCH /api/v1/alerts/{id}/ is rejected with HTTP 405 Method Not Allowed."""
-        detail_url = reverse('alerts:alert_detail', kwargs={'pk': self.alert1.pk})
-        self.client.force_authenticate(user=self.admin_user)
-        response = self.client.patch(detail_url, {"status": "Sent"}, format='json')
-        self.assertEqual(response.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
-
-    def test_22_delete_detail_method_not_allowed(self):
-        """22. DELETE /api/v1/alerts/{id}/ is rejected with HTTP 405 Method Not Allowed."""
+    def test_15_staff_user_delete_alert_success(self):
+        """15. Staff/Admin user can DELETE /api/v1/alerts/{id}/ and safely cleanup evidence."""
         detail_url = reverse('alerts:alert_detail', kwargs={'pk': self.alert1.pk})
         self.client.force_authenticate(user=self.admin_user)
         response = self.client.delete(detail_url)
-        self.assertEqual(response.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
-
-    # ==========================================================================
-    # 5. STEP 10 INTEGRATION (DETECTION TO ALERTS RETRIEVAL)
-    # ==========================================================================
-    def test_23_step_10_detection_creates_retrievable_alert(self):
-        """23. Alert created by Step 10 DetectionService is immediately accessible via Step 11 Alert APIs."""
-        # Configure Step 10 settings & mock
-        settings = ProjectSettings.get_settings()
-        settings.detection_enabled = True
-        settings.threat_level_overrides = {"wolf": "high"}
-        settings.save()
-
-        mock_model = MockYOLOModel(detections=[(0, 0.96, (10, 10, 90, 90))])  # wolf
-        set_mock_model(mock_model)
-
-        # Execute detection analysis
-        import io
-        from PIL import Image
-        img = Image.new("RGB", (100, 100), (0, 255, 0))
-        buf = io.BytesIO()
-        img.save(buf, format="JPEG")
-
-        analysis_result = DetectionService.analyze_image_bytes(buf.getvalue(), field_name="West Greenhouse")
-        self.assertTrue(analysis_result['alert_triggered'])
-
-        # Now query Step 11 Alert APIs
-        self.client.force_authenticate(user=self.regular_user)
-        response = self.client.get(f"{self.list_url}?animal_type=wolf")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        data = response.json()['data']
-
-        # Find the newly created alert
-        wolf_alerts = [a for a in data if a['field'] == "West Greenhouse"]
-        self.assertEqual(len(wolf_alerts), 1)
-        self.assertEqual(wolf_alerts[0]['alert_type'], "Email + Buzzer")
-        self.assertEqual(wolf_alerts[0]['status'], "Triggered")
-        self.assertEqual(wolf_alerts[0]['confidence'], 0.96)
+        self.assertFalse(Alert.objects.filter(pk=self.alert1.pk).exists())

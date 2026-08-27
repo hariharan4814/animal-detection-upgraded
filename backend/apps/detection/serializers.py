@@ -10,7 +10,7 @@ from apps.detection.models import AnimalLog
 class AnimalLogSerializer(serializers.ModelSerializer):
     """
     Serializer for AnimalLog records.
-    Exposes historical animal detection event logs.
+    Exposes historical animal detection event logs and assigned threat classification.
     """
     class Meta:
         model = AnimalLog
@@ -18,6 +18,7 @@ class AnimalLogSerializer(serializers.ModelSerializer):
             'id',
             'animal_type',
             'confidence',
+            'threat_level',
             'timestamp',
             'field',
             'image_path',
@@ -39,6 +40,7 @@ class DetectionStatusSerializer(serializers.Serializer):
     alert_cooldown_seconds = serializers.IntegerField()
     audio_buzzer_enabled = serializers.BooleanField()
     email_alerts_enabled = serializers.BooleanField()
+    attach_alert_image_to_email = serializers.BooleanField(required=False, default=True)
     supported_classes_count = serializers.IntegerField()
     supported_classes = serializers.ListField(child=serializers.CharField())
 
@@ -59,7 +61,7 @@ class ImageAnalysisSerializer(serializers.Serializer):
     """
     image = serializers.FileField(
         required=True,
-        help_text="Image file (JPEG, PNG) to analyze with YOLO object detection"
+        help_text="Image file (JPEG, PNG, WEBP, BMP) to analyze with YOLO object detection"
     )
     field = serializers.CharField(
         required=False,

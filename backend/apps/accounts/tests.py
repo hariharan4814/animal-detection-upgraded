@@ -144,3 +144,50 @@ class AuthenticationAPITests(TestCase):
             format='json'
         )
         self.assertIn(attempt_res.status_code, [status.HTTP_400_BAD_REQUEST, status.HTTP_401_UNAUTHORIZED])
+
+    def test_cors_preflight_for_port_8080(self):
+        """Regression test (Step 21): verify CORS preflight OPTIONS from http://localhost:8080 returns 200 with Allow-Origin header."""
+        response = self.client.options(
+            self.login_url,
+            HTTP_ORIGIN='http://localhost:8080',
+            HTTP_ACCESS_CONTROL_REQUEST_METHOD='POST',
+            HTTP_ACCESS_CONTROL_REQUEST_HEADERS='content-type,authorization'
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.get('Access-Control-Allow-Origin'), 'http://localhost:8080')
+        self.assertEqual(response.get('Access-Control-Allow-Credentials'), 'true')
+
+    def test_cors_post_login_for_port_8080(self):
+        """Regression test (Step 21): verify POST login from http://localhost:8080 receives Allow-Origin header and 200 OK."""
+        response = self.client.post(
+            self.login_url,
+            {"username": self.username, "password": self.password},
+            format='json',
+            HTTP_ORIGIN='http://localhost:8080'
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.get('Access-Control-Allow-Origin'), 'http://localhost:8080')
+        data = response.json()
+        self.assertTrue(data['success'])
+        self.assertIn('access', data['data'])
+
+    def test_cors_for_127_0_0_1_port_8080(self):
+        """Regression test (Step 21): verify CORS headers for http://127.0.0.1:8080."""
+        response = self.client.options(
+            self.login_url,
+            HTTP_ORIGIN='http://127.0.0.1:8080',
+            HTTP_ACCESS_CONTROL_REQUEST_METHOD='POST'
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.get('Access-Control-Allow-Origin'), 'http://127.0.0.1:8080')
+
+    def test_cors_for_network_ip_origin(self):
+        """Regression test (Step 21): verify CORS headers for network development origins (e.g. 10.x.x.x:8080)."""
+        response = self.client.options(
+            self.login_url,
+            HTTP_ORIGIN='http://10.135.27.141:8080',
+            HTTP_ACCESS_CONTROL_REQUEST_METHOD='POST'
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.get('Access-Control-Allow-Origin'), 'http://10.135.27.141:8080')
+

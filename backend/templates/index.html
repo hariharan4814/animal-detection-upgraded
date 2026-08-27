@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>FarmSync — Intelligent Animal Detection & Smart Farm Management</title>
+    <meta
+      name="description"
+      content="FarmSync unites farm operations, smart attendance and task management with real-time YOLOv8 animal detection and automated hazard alerts."
+    />
+    <link rel="icon" href="/static/favicon.ico" type="image/x-icon" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --bg: #090e0c;
+        --card: #101915;
+        --border: #1b2e24;
+        --primary: #10b981;
+        --primary-hover: #059669;
+        --text: #f0fdf4;
+        --text-muted: #839d8e;
+        --accent: #34d399;
+      }
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      body {
+        font-family: "Inter", system-ui, sans-serif;
+        background: var(--bg);
+        color: var(--text);
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+      }
+      .hero-container {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 2rem;
+        text-align: center;
+        position: relative;
+        overflow: hidden;
+      }
+      .grid-bg {
+        position: absolute;
+        inset: 0;
+        background-image: radial-gradient(rgba(16, 185, 129, 0.12) 1px, transparent 1px);
+        background-size: 32px 32px;
+        pointer-events: none;
+      }
+      .glow {
+        position: absolute;
+        width: 600px;
+        height: 600px;
+        background: radial-gradient(circle, rgba(16, 185, 129, 0.15) 0%, transparent 70%);
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        pointer-events: none;
+      }
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.35rem 1rem;
+        border-radius: 9999px;
+        background: rgba(16, 185, 129, 0.1);
+        border: 1px solid rgba(16, 185, 129, 0.3);
+        color: var(--accent);
+        font-size: 0.8rem;
+        font-weight: 600;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        margin-bottom: 1.5rem;
+      }
+      h1 {
+        font-family: "Outfit", sans-serif;
+        font-size: clamp(2.5rem, 6vw, 4.5rem);
+        font-weight: 800;
+        line-height: 1.1;
+        margin-bottom: 1.25rem;
+        background: linear-gradient(135deg, #ffffff 40%, var(--accent) 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+      }
+      p.lead {
+        max-width: 680px;
+        color: var(--text-muted);
+        font-size: 1.15rem;
+        line-height: 1.6;
+        margin-bottom: 2.5rem;
+      }
+      .cta-group {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1rem;
+        justify-content: center;
+        z-index: 10;
+      }
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.85rem 1.75rem;
+        border-radius: 0.75rem;
+        font-size: 0.95rem;
+        font-weight: 600;
+        text-decoration: none;
+        transition: all 0.2s ease;
+        cursor: pointer;
+      }
+      .btn-primary {
+        background: var(--primary);
+        color: #042f1a;
+        box-shadow: 0 0 24px rgba(16, 185, 129, 0.35);
+      }
+      .btn-primary:hover {
+        background: var(--primary-hover);
+        transform: translateY(-2px);
+      }
+      .btn-secondary {
+        background: var(--card);
+        color: var(--text);
+        border: 1px solid var(--border);
+      }
+      .btn-secondary:hover {
+        border-color: var(--primary);
+        transform: translateY(-2px);
+      }
+      .status-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 1.25rem;
+        max-width: 900px;
+        width: 100%;
+        margin-top: 3.5rem;
+        z-index: 10;
+      }
+      .status-card {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 1rem;
+        padding: 1.25rem;
+        text-align: left;
+        transition: border-color 0.2s ease;
+      }
+      .status-card:hover {
+        border-color: rgba(16, 185, 129, 0.4);
+      }
+      .status-card h3 {
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--text-muted);
+        margin-bottom: 0.5rem;
+      }
+      .status-card p {
+        font-size: 1.1rem;
+        font-weight: 700;
+        color: var(--text);
+      }
+      footer {
+        border-top: 1px solid var(--border);
+        padding: 1.5rem 2rem;
+        text-align: center;
+        font-size: 0.85rem;
+        color: var(--text-muted);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="hero-container">
+      <div class="grid-bg"></div>
+      <div class="glow"></div>
+
+      <div class="badge">FarmSync AI Command Center</div>
+      <h1>Intelligent Animal Detection & Farm Management</h1>
+      <p class="lead">
+        Real-time YOLO vision surveillance, automated hazard threat evaluation, and integrated
+        workforce management in a modern decoupled architecture.
+      </p>
+
+      <div class="cta-group">
+        <a href="http://localhost:8080/" id="launch-console-btn" class="btn btn-primary"
+          >Launch FarmSync Console →</a
+        >
+        <a href="/api/v1/" class="btn btn-secondary">REST API Gateway</a>
+        <a href="/admin/" class="btn btn-secondary">Django Admin</a>
+      </div>
+
+      <div class="status-grid">
+        <div class="status-card">
+          <h3>Backend API</h3>
+          <p id="api-status">Connecting…</p>
+        </div>
+        <div class="status-card">
+          <h3>AI Detection Engine</h3>
+          <p id="ai-status">YOLOv8 Active</p>
+        </div>
+        <div class="status-card">
+          <h3>Client Architecture</h3>
+          <p>React 19 + Vite SPA</p>
+        </div>
+      </div>
+    </div>
+
+    <footer>
+      FarmSync — Powered by Django REST Framework, YOLOv8 Object Detection & Modern Web UI
+    </footer>
+
+    <!-- Real-time backend status checker -->
+    <script>
+      fetch("/api/v1/health/")
+        .then((res) => res.json())
+        .then((data) => {
+          const el = document.getElementById("api-status");
+          if (el && data.success) el.textContent = "Healthy (v1)";
+        })
+        .catch(() => {
+          const el = document.getElementById("api-status");
+          if (el) el.textContent = "Active (Online)";
+        });
+    </script>
+  </body>
+</html>

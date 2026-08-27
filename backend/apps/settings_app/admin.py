@@ -1,5 +1,11 @@
 from django.contrib import admin
-from apps.settings_app.models import EmailSenderConfig, AlertReceiver, ProjectSettings
+from apps.settings_app.models import (
+    EmailSenderConfig,
+    AlertReceiver,
+    ProjectSettings,
+    AnimalThreatRule,
+    ThreatEmailTemplate,
+)
 
 
 @admin.register(EmailSenderConfig)
@@ -17,4 +23,17 @@ class AlertReceiverAdmin(admin.ModelAdmin):
 
 @admin.register(ProjectSettings)
 class ProjectSettingsAdmin(admin.ModelAdmin):
-    list_display = ('system_name', 'alert_cooldown_seconds', 'detection_confidence_threshold', 'detection_enabled', 'email_alerts_enabled')
+    list_display = ('system_name', 'alert_cooldown_seconds', 'detection_confidence_threshold', 'detection_enabled', 'email_alerts_enabled', 'attach_alert_image_to_email')
+
+
+@admin.register(AnimalThreatRule)
+class AnimalThreatRuleAdmin(admin.ModelAdmin):
+    list_display = ('animal_name', 'threat_level', 'is_active', 'updated_at')
+    list_filter = ('threat_level', 'is_active')
+    search_fields = ('animal_name',)
+
+
+@admin.register(ThreatEmailTemplate)
+class ThreatEmailTemplateAdmin(admin.ModelAdmin):
+    list_display = ('threat_level', 'subject_template', 'is_active', 'updated_at')
+    list_filter = ('threat_level', 'is_active')
