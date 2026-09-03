@@ -87,8 +87,8 @@ class DashboardAPITests(TestCase):
     def test_05_to_09_metric_calculations_with_data(self):
         """5-9. Verify accurate metrics for farmers, attendance, tasks, detections, and alerts."""
         # Setup test data
-        f1 = Farmer.objects.create(name="Farmer One", phone="111", field="North")
-        f2 = Farmer.objects.create(name="Farmer Two", phone="222", field="South")
+        f1 = Farmer.objects.create(name="Farmer One", phone="111", field="North", email="f1@farmsync.local")
+        f2 = Farmer.objects.create(name="Farmer Two", phone="222", field="South", email="f2@farmsync.local")
 
         today = timezone.localdate()
         yesterday = today - timedelta(days=1)
@@ -164,7 +164,7 @@ class DashboardAPITests(TestCase):
     # 11. Read-only enforcement (no mutations)
     def test_11_dashboard_is_strictly_read_only(self):
         """11. Verify dashboard queries do not modify DB records."""
-        f = Farmer.objects.create(name="Immutable Farmer", phone="999", field="East")
+        f = Farmer.objects.create(name="Immutable Farmer", phone="999", field="East", email="immutable@farmsync.local")
         initial_count = Farmer.objects.count()
 
         self.client.force_authenticate(user=self.user)
@@ -189,7 +189,7 @@ class DashboardAPITests(TestCase):
     # 15. Recent activity feed verification
     def test_15_recent_activity_feed(self):
         """15. Verify recent activity endpoint returns populated records with correct limits."""
-        farmer = Farmer.objects.create(name="Activity Worker", phone="777", field="Greenhouse")
+        farmer = Farmer.objects.create(name="Activity Worker", phone="777", field="Greenhouse", email="activity@farmsync.local")
         log = AnimalLog.objects.create(animal_type="tiger", confidence=0.99, field="Greenhouse", image_path="tiger.jpg")
         Alert.objects.create(animal_log=log, alert_type="Email + Buzzer", status="Triggered")
         Task.objects.create(task_name="Feed animals", assigned_to=farmer, status="Pending", date=timezone.localdate())

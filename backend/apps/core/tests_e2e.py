@@ -173,7 +173,16 @@ class EndToEndIntegrationAndSecurityTests(TestCase):
 
         # 1. Create Farmer
         farmers_url = reverse('farmers:farmer_list_create')
-        res_farmer = self.client.post(farmers_url, {'name': 'Ramesh Kumar', 'field': 'East Orchard', 'phone': '9876543210'}, format='json')
+        res_farmer = self.client.post(
+            farmers_url,
+            {
+                'name': 'Ramesh Kumar',
+                'field': 'East Orchard',
+                'phone': '9876543210',
+                'email': 'ramesh@farmsync.local',
+            },
+            format='json'
+        )
         self.assertEqual(res_farmer.status_code, status.HTTP_201_CREATED)
         farmer_id = res_farmer.json()['data']['id']
 
@@ -190,7 +199,14 @@ class EndToEndIntegrationAndSecurityTests(TestCase):
 
         # 4. Check-Out Farmer
         checkout_url = reverse('attendance:check_out')
-        res_cout = self.client.post(checkout_url, {'farmer_id': farmer_id}, format='json')
+        res_cout = self.client.post(
+            checkout_url,
+            {
+                'farmer_id': farmer_id,
+                'work_description': 'Completed harvesting and pruning in East Orchard.'
+            },
+            format='json'
+        )
         self.assertEqual(res_cout.status_code, status.HTTP_200_OK)
         self.assertIsNotNone(res_cout.json()['data']['check_out'])
 

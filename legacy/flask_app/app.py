@@ -19,7 +19,7 @@ with open('config.json', 'r') as f:
 EMAIL_CONFIG = {
     'sender_email': '2ktamilstatus@gmail.com',
     'sender_password': 'fjod levk pskl dkvs',
-    'recipient_email': 'hariharan4814@gmail.com,hariharanb.inbox@gmail.com',
+    'recipient_email': 'hariharan4814@gmail.com',
     'smtp_server': 'smtp.gmail.com',
     'smtp_port': 587
 }

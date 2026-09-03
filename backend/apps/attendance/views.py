@@ -113,15 +113,21 @@ class CheckOutView(APIView):
         serializer.is_valid(raise_exception=True)
 
         attendance = AttendanceService.check_out(
-            farmer_id=serializer.validated_data['farmer_id'],
+            farmer_id=serializer.validated_data.get('farmer_id'),
+            attendance_id=serializer.validated_data.get('attendance_id'),
+            work_description=serializer.validated_data['work_description'],
             device_location=serializer.validated_data.get('device_location'),
             check_out_time=serializer.validated_data.get('check_out_time'),
             record_date=serializer.validated_data.get('date')
         )
 
         out_serializer = AttendanceSerializer(attendance)
+        msg = "Worker check-out recorded successfully and work report dispatched."
+        if not attendance.email_sent and attendance.email_error:
+            msg = "Worker check-out recorded successfully, but the email report could not be delivered."
+
         return success_response(
-            message="Worker check-out recorded successfully.",
+            message=msg,
             data=out_serializer.data,
             status_code=status.HTTP_200_OK
         )

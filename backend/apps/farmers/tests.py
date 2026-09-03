@@ -135,17 +135,17 @@ class FarmersAPITests(TestCase):
     # ==========================================================================
     def test_10_regular_user_cannot_put(self):
         """10. Regular user cannot perform PUT full update (HTTP 403)."""
-        farmer = Farmer.objects.create(name="Dave", phone="123", field="Sector 1")
+        farmer = Farmer.objects.create(name="Dave", phone="123", field="Sector 1", email="dave@example.com")
         detail_url = reverse('farmers:farmer_detail', kwargs={'pk': farmer.pk})
 
         self.client.force_authenticate(user=self.regular_user)
-        put_payload = {"name": "Dave Updated", "phone": "123", "field": "Sector 1"}
+        put_payload = {"name": "Dave Updated", "phone": "123", "field": "Sector 1", "email": "dave@example.com"}
         response = self.client.put(detail_url, put_payload, format='json')
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_11_staff_can_put_full_update(self):
         """11. Staff/admin can perform PUT full update."""
-        farmer = Farmer.objects.create(name="Dave", phone="123", field="Sector 1")
+        farmer = Farmer.objects.create(name="Dave", phone="123", field="Sector 1", email="dave@example.com")
         detail_url = reverse('farmers:farmer_detail', kwargs={'pk': farmer.pk})
 
         self.client.force_authenticate(user=self.admin_user)
@@ -165,7 +165,7 @@ class FarmersAPITests(TestCase):
 
     def test_12_regular_user_cannot_patch(self):
         """12. Regular user cannot perform PATCH partial update (HTTP 403)."""
-        farmer = Farmer.objects.create(name="Eve", phone="456", field="Sector 3")
+        farmer = Farmer.objects.create(name="Eve", phone="456", field="Sector 3", email="eve@example.com")
         detail_url = reverse('farmers:farmer_detail', kwargs={'pk': farmer.pk})
 
         self.client.force_authenticate(user=self.regular_user)
@@ -200,7 +200,7 @@ class FarmersAPITests(TestCase):
     # ==========================================================================
     def test_15_regular_user_cannot_delete(self):
         """15. Regular user cannot delete a farmer (HTTP 403)."""
-        farmer = Farmer.objects.create(name="Grace", phone="888", field="Poultry")
+        farmer = Farmer.objects.create(name="Grace", phone="888", field="Poultry", email="grace@example.com")
         detail_url = reverse('farmers:farmer_detail', kwargs={'pk': farmer.pk})
 
         self.client.force_authenticate(user=self.regular_user)
@@ -210,7 +210,7 @@ class FarmersAPITests(TestCase):
 
     def test_16_staff_can_delete_farmer(self):
         """16. Staff/admin can delete a farmer."""
-        farmer = Farmer.objects.create(name="Grace", phone="888", field="Poultry")
+        farmer = Farmer.objects.create(name="Grace", phone="888", field="Poultry", email="grace@example.com")
         detail_url = reverse('farmers:farmer_detail', kwargs={'pk': farmer.pk})
 
         self.client.force_authenticate(user=self.admin_user)
@@ -221,7 +221,7 @@ class FarmersAPITests(TestCase):
 
     def test_17_delete_with_related_attendance_cascades(self):
         """17. Deleting a Farmer cascade-deletes their associated Attendance records (on_delete=CASCADE)."""
-        farmer = Farmer.objects.create(name="Henry", phone="333", field="Dairy")
+        farmer = Farmer.objects.create(name="Henry", phone="333", field="Dairy", email="henry@example.com")
         att = Attendance.objects.create(farmer=farmer, date=timezone.localdate(), check_in=time(8, 0), total_hours=7.5)
         detail_url = reverse('farmers:farmer_detail', kwargs={'pk': farmer.pk})
 
@@ -234,7 +234,7 @@ class FarmersAPITests(TestCase):
 
     def test_18_delete_with_related_tasks_sets_null(self):
         """18. Deleting a Farmer sets assigned_to=NULL on their associated Tasks (on_delete=SET_NULL)."""
-        farmer = Farmer.objects.create(name="Ivy", phone="444", field="Vineyard")
+        farmer = Farmer.objects.create(name="Ivy", phone="444", field="Vineyard", email="ivy@example.com")
         task = Task.objects.create(task_name="Prune vines", assigned_to=farmer, status="Pending", date=timezone.localdate())
         detail_url = reverse('farmers:farmer_detail', kwargs={'pk': farmer.pk})
 
@@ -252,7 +252,7 @@ class FarmersAPITests(TestCase):
     # ==========================================================================
     def test_19_response_format_standardization(self):
         """19. Standard response envelope is strictly adhered to."""
-        farmer = Farmer.objects.create(name="Jack", phone="123", field="Barn")
+        farmer = Farmer.objects.create(name="Jack", phone="123", field="Barn", email="jack@example.com")
         detail_url = reverse('farmers:farmer_detail', kwargs={'pk': farmer.pk})
 
         self.client.force_authenticate(user=self.regular_user)
@@ -266,15 +266,15 @@ class FarmersAPITests(TestCase):
 
     def test_20_unauthenticated_write_endpoints_rejected(self):
         """20. Zero unauthenticated write access on POST, PUT, PATCH, DELETE."""
-        farmer = Farmer.objects.create(name="Karen", phone="000", field="HQ")
+        farmer = Farmer.objects.create(name="Karen", phone="000", field="HQ", email="karen@example.com")
         detail_url = reverse('farmers:farmer_detail', kwargs={'pk': farmer.pk})
 
         # POST
-        res_post = self.client.post(self.list_create_url, {"name": "Karen 2"}, format='json')
+        res_post = self.client.post(self.list_create_url, {"name": "Karen 2", "email": "karen2@example.com"}, format='json')
         self.assertEqual(res_post.status_code, status.HTTP_401_UNAUTHORIZED)
 
         # PUT
-        res_put = self.client.put(detail_url, {"name": "Karen Updated"}, format='json')
+        res_put = self.client.put(detail_url, {"name": "Karen Updated", "email": "karen@example.com"}, format='json')
         self.assertEqual(res_put.status_code, status.HTTP_401_UNAUTHORIZED)
 
         # PATCH
@@ -284,3 +284,62 @@ class FarmersAPITests(TestCase):
         # DELETE
         res_del = self.client.delete(detail_url)
         self.assertEqual(res_del.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    # ==========================================================================
+    # 6. MANDATORY EMAIL & VALIDATION TESTS
+    # ==========================================================================
+    def test_21_farmer_create_requires_email(self):
+        """21. Farmer creation requires an email address (HTTP 400)."""
+        self.client.force_authenticate(user=self.admin_user)
+        payload = {
+            "name": "No Email Worker",
+            "phone": "555-0001",
+            "field": "East Field"
+        }
+        response = self.client.post(self.list_create_url, payload, format='json')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertFalse(response.json()['success'])
+
+    def test_22_farmer_create_invalid_email_format_rejected(self):
+        """22. Farmer creation with invalid email format is rejected."""
+        self.client.force_authenticate(user=self.admin_user)
+        payload = {
+            "name": "Bad Email Worker",
+            "phone": "555-0002",
+            "field": "East Field",
+            "email": "not-a-valid-email"
+        }
+        response = self.client.post(self.list_create_url, payload, format='json')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertFalse(response.json()['success'])
+
+    def test_23_farmer_create_duplicate_email_rejected(self):
+        """23. Farmer creation with duplicate email is rejected (uniqueness)."""
+        Farmer.objects.create(name="Existing Worker", phone="555-1111", field="Field A", email="duplicate@example.com")
+        self.client.force_authenticate(user=self.admin_user)
+        payload = {
+            "name": "New Worker",
+            "phone": "555-2222",
+            "field": "Field B",
+            "email": "duplicate@example.com"
+        }
+        response = self.client.post(self.list_create_url, payload, format='json')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertFalse(response.json()['success'])
+
+    def test_24_farmer_email_stored_and_returned_correctly(self):
+        """24. Farmer email is stored normalized in lowercase and returned in API responses."""
+        self.client.force_authenticate(user=self.admin_user)
+        payload = {
+            "name": "Sanjeev B",
+            "phone": "9940099083",
+            "field": "Main Field",
+            "email": "SanjeevB.Inbox@gmail.com"
+        }
+        response = self.client.post(self.list_create_url, payload, format='json')
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        data = response.json()['data']
+        self.assertEqual(data['email'], "sanjeevb.inbox@gmail.com")
+
+        farmer = Farmer.objects.get(name="Sanjeev B")
+        self.assertEqual(farmer.email, "sanjeevb.inbox@gmail.com")

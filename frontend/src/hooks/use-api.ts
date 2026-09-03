@@ -1,7 +1,16 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { UseQueryOptions } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { api, apiRequest, humanizeError, toList } from "@/lib/api";
+import {
+  api,
+  apiRequest,
+  humanizeError,
+  normalizeAlert,
+  normalizeDetectionLog,
+  normalizeDetectionResponse,
+  toList,
+} from "@/lib/api";
+import { toDate } from "@/lib/format";
 import type {
   ActivityItem,
   AlertReceiver,
@@ -104,8 +113,8 @@ export function useRecentActivity() {
 
       // Sort chronological descending
       items.sort((a, b) => {
-        const timeA = a.timestamp ? new Date(a.timestamp).getTime() : 0;
-        const timeB = b.timestamp ? new Date(b.timestamp).getTime() : 0;
+        const timeA = a.timestamp ? (toDate(a.timestamp)?.getTime() ?? 0) : 0;
+        const timeB = b.timestamp ? (toDate(b.timestamp)?.getTime() ?? 0) : 0;
         return timeB - timeA;
       });
 
@@ -215,14 +224,35 @@ export function useAttendanceActions() {
   });
 
   const checkOut = useMutation({
-    mutationFn: ({ farmer_id, location }: { farmer_id: number; location?: string }) =>
+    mutationFn: (payload: {
+      farmer_id?: number;
+      attendance_id?: number;
+      work_description: string;
+      location?: string;
+      check_out_time?: string;
+      date?: string;
+    }) =>
       api.post<AttendanceRecord>("/attendance/check-out/", {
-        farmer_id,
-        ...(location ? { device_location: location } : {}),
+        ...(payload.farmer_id ? { farmer_id: payload.farmer_id } : {}),
+        ...(payload.attendance_id ? { attendance_id: payload.attendance_id } : {}),
+        work_description: payload.work_description,
+        ...(payload.location ? { device_location: payload.location } : {}),
+        ...(payload.check_out_time ? { check_out_time: payload.check_out_time } : {}),
+        ...(payload.date ? { date: payload.date } : {}),
       }),
-    onSuccess: () => {
+    onSuccess: (data) => {
       invalidate();
-      toast.success("Check-out recorded successfully");
+      if (data?.email_sent) {
+        toast.success("Attendance Completed", {
+          description: "Work shift recorded and email report sent to worker and administrator.",
+        });
+      } else if (data?.email_error) {
+        toast.warning("Attendance Recorded", {
+          description: "Shift saved, but the email report could not be delivered.",
+        });
+      } else {
+        toast.success("Check-out recorded successfully");
+      }
     },
     onError: (e) => toast.error(humanizeError(e)),
   });
@@ -310,11 +340,12 @@ export function useToggleDetection() {
 export function useAnalyzeImage() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ file, fieldName = "Main Field" }: { file: File; fieldName?: string }) => {
+    mutationFn: async ({ file, fieldName = "Main Field" }: { file: File; fieldName?: string }) => {
       const form = new FormData();
       form.append("image", file);
       form.append("field", fieldName);
-      return apiRequest<AnalyzeResult>("/detection/analyze/", { method: "POST", body: form });
+      const res = await apiRequest<unknown>("/detection/analyze/", { method: "POST", body: form });
+      return normalizeDetectionResponse(res);
     },
     onSuccess: (data) => {
       void qc.invalidateQueries({ queryKey: ["detection", "logs"] });
@@ -335,7 +366,12 @@ export function useAnalyzeImage() {
 
 export function useDetectionLogs() {
   return useQuery({
-    ...listQuery<DetectionLog>(["detection", "logs"], "/detection/logs/"),
+    queryKey: ["detection", "logs"],
+    queryFn: async () => {
+      const raw = await api.get<ListResponse<DetectionLog>>("/detection/logs/");
+      const list = toList(raw);
+      return list.map(normalizeDetectionLog);
+    },
     refetchInterval: 5000,
     refetchOnWindowFocus: true,
     staleTime: 3000,
@@ -346,7 +382,12 @@ export function useDetectionLogs() {
 
 export function useAlerts() {
   return useQuery({
-    ...listQuery<HazardAlert>(["alerts"], "/alerts/"),
+    queryKey: ["alerts"],
+    queryFn: async () => {
+      const raw = await api.get<ListResponse<HazardAlert>>("/alerts/");
+      const list = toList(raw);
+      return list.map(normalizeAlert);
+    },
     refetchInterval: 5000,
     refetchOnWindowFocus: true,
     staleTime: 3000,

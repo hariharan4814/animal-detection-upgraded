@@ -22,7 +22,8 @@ class TaskModelTests(TestCase):
         self.farmer = Farmer.objects.create(
             name="Bob Worker",
             phone="5551234567",
-            field="West Greenhouse"
+            field="West Greenhouse",
+            email="bob.worker@farmsync.local"
         )
 
     def test_create_task(self):
@@ -387,7 +388,7 @@ class TasksAPITests(TestCase):
 
     def test_28_farmer_deletion_sets_task_assigned_to_null(self):
         """28. Deleting an assigned Farmer preserves the Task and sets assigned_to=NULL (on_delete=SET_NULL)."""
-        temp_farmer = Farmer.objects.create(name="Temp Worker", phone="1112223333", field="Shed")
+        temp_farmer = Farmer.objects.create(name="Temp Worker", phone="1112223333", field="Shed", email="temp.worker@farmsync.local")
         task = Task.objects.create(task_name="Temporary job", assigned_to=temp_farmer)
 
         # Delete the farmer

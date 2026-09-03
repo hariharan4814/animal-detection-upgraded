@@ -36,31 +36,48 @@ function NotFoundComponent() {
 }
 
 function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
-  console.error(error);
+  console.error("Root Route Error Caught:", {
+    name: error?.name,
+    message: error?.message,
+    stack: error?.stack,
+  });
   const router = useRouter();
+  const isDev = Boolean(typeof import.meta !== "undefined" && import.meta.env?.DEV);
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
-      <div className="max-w-md text-center">
+      <div className="max-w-lg text-center">
         <h1 className="text-xl font-semibold tracking-tight text-foreground">
           This page didn't load
         </h1>
         <p className="mt-2 text-sm text-muted-foreground">
           Something went wrong on our end. You can try refreshing or head back home.
         </p>
+
+        {isDev && error && (
+          <div className="mt-4 max-h-52 overflow-y-auto rounded-lg border border-destructive/30 bg-destructive/10 p-3.5 text-left font-mono text-xs text-destructive">
+            <p className="font-semibold">
+              {error.name || "Error"}: {error.message || "Unknown error"}
+            </p>
+            {error.stack && (
+              <pre className="mt-2 whitespace-pre-wrap text-[10px] opacity-80">{error.stack}</pre>
+            )}
+          </div>
+        )}
+
         <div className="mt-6 flex flex-wrap justify-center gap-2">
           <button
             onClick={() => {
               router.invalidate();
               reset();
             }}
-            className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+            className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 cursor-pointer"
           >
             Try again
           </button>
           <a
             href="/"
-            className="inline-flex items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent"
+            className="inline-flex items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent cursor-pointer"
           >
             Go home
           </a>

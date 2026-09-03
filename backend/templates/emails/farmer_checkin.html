@@ -1,0 +1,48 @@
+{% extends "emails/base_email.html" %}
+
+{% block title %}FarmSync Check-In Confirmation &ndash; {{ record_date }}{% endblock %}
+
+{% block header_title %}Shift Check-In Confirmation{% endblock %}
+
+{% block content %}
+<div style="margin-bottom: 24px;">
+    <div style="display: inline-flex; align-items: center; background-color: #f0fdf4; border: 1px solid #bbf7d0; color: #166534; padding: 6px 14px; border-radius: 9999px; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 14px;">
+        &#10003; Work Session Active
+    </div>
+    <h2 style="margin: 0 0 6px 0; font-size: 18px; font-weight: 700; color: #0f172a;">
+        Shift Check-In &ndash; {{ farmer_name }}
+    </h2>
+    <p style="margin: 0; font-size: 14px; line-height: 1.5; color: #475569;">
+        Hello <strong>{{ farmer_name }}</strong>, your check-in has been recorded. Your work session for <strong>{{ record_date }}</strong> has officially started.
+    </p>
+</div>
+
+<table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="margin-bottom: 24px; border-collapse: separate; border-spacing: 0;">
+    <tr>
+        <td style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px;">
+            <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="font-size: 13px;">
+                <tr>
+                    <td style="padding: 6px 0; color: #64748b; width: 40%; font-weight: 600;">Farmer Name:</td>
+                    <td style="padding: 6px 0; color: #0f172a; font-weight: 700;">{{ farmer_name }}</td>
+                </tr>
+                <tr>
+                    <td style="padding: 6px 0; color: #64748b; font-weight: 600;">Check-In Time:</td>
+                    <td style="padding: 6px 0; color: #0f172a; font-weight: 700; font-family: monospace;">{{ check_in_time }}</td>
+                </tr>
+                <tr>
+                    <td style="padding: 6px 0; color: #64748b; font-weight: 600;">Date:</td>
+                    <td style="padding: 6px 0; color: #0f172a; font-weight: 600;">{{ record_date }}</td>
+                </tr>
+                <tr>
+                    <td style="padding: 6px 0; color: #64748b; font-weight: 600;">Field / Sector:</td>
+                    <td style="padding: 6px 0; color: #0f172a; font-weight: 600;">{{ location|default:"Main Field" }}</td>
+                </tr>
+            </table>
+        </td>
+    </tr>
+</table>
+
+<div style="background-color: #f1f5f9; border-radius: 8px; padding: 14px 18px; font-size: 13px; color: #334155; line-height: 1.5;">
+    <strong>Reminder:</strong> Please remember to record what work you completed when checking out at the end of your shift.
+</div>
+{% endblock %}

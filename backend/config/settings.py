@@ -199,16 +199,19 @@ SIMPLE_JWT = {
 # Allows independent frontend clients (e.g. React / Vite SPA) to communicate with the API
 cors_origins_env = os.getenv(
     'CORS_ALLOWED_ORIGINS',
-    'http://localhost:8080,http://127.0.0.1:8080,http://localhost:5173,http://127.0.0.1:5173,http://localhost:5174,http://127.0.0.1:5174,http://localhost:4173,http://127.0.0.1:4173,http://localhost:3000,http://127.0.0.1:3000'
+    'http://localhost:8080,http://127.0.0.1:8080,http://localhost:8081,http://127.0.0.1:8081,http://localhost:5173,http://127.0.0.1:5173,http://localhost:5174,http://127.0.0.1:5174,http://localhost:4173,http://127.0.0.1:4173,http://localhost:3000,http://127.0.0.1:3000'
 )
 CORS_ALLOWED_ORIGINS = [
     origin.strip() for origin in cors_origins_env.split(',') if origin.strip()
 ]
 CORS_ALLOW_CREDENTIALS = True
 
-# Also support local development regex matching for local network IPs on ports 8080, 5173, 5174, 4173, 3000
+# Also support local development regex matching for local network IPs on ports 8080, 8081, 5173, 5174, 4173, 3000
 CORS_ALLOWED_ORIGIN_REGEXES = [
-    r"^http://(localhost|127\.0\.0\.1|10\.\d+\.\d+\.\d+|192\.168\.\d+\.\d+):(8080|5173|5174|4173|3000)$",
+    r"^http://(localhost|127\.0\.0\.1|10\.\d+\.\d+\.\d+|192\.168\.\d+\.\d+):(8080|8081|5173|5174|4173|3000)$",
 ]
+
+# Work Report Administrator Email (Default recipient for worker checkout reports)
+WORK_REPORT_ADMIN_EMAIL = os.getenv('WORK_REPORT_ADMIN_EMAIL', 'hariharan4814@gmail.com')
 
 

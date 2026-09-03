@@ -29,7 +29,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ErrorState, PageHeader } from "@/components/common/states";
 import { useAnalyzeImage, useDetectionStatus, useToggleDetection } from "@/hooks/use-api";
 import { useAuth } from "@/lib/auth";
-import { apiClient, mediaUrl, streamUrl } from "@/lib/api";
+import { apiClient, mediaUrl, normalizeDetectionResponse, streamUrl } from "@/lib/api";
 import { confidencePercent, formatDateTime } from "@/lib/format";
 import { toast } from "sonner";
 import type { AnalyzeResult, DetectionItem } from "@/types/api";
@@ -55,7 +55,7 @@ export const Route = createFileRoute("/app/monitoring")({
 
 interface SessionEvent {
   id: string;
-  timestamp: Date;
+  timestamp: string | Date;
   animal: string;
   threatLevel: string;
   confidence: number;
@@ -198,15 +198,11 @@ function ContinuousCameraMonitor({ detectionEngineEnabled }: { detectionEngineEn
           form.append("image", blob, "live_frame.jpg");
           form.append("field", "Main Field Surveillance");
 
-          const res = await apiClient.post<AnalyzeResult>("/detection/analyze/", form);
+          const res = await apiClient.post<unknown>("/detection/analyze/", form);
           const elapsed = Math.round(performance.now() - startT);
           setLastInferenceMs(elapsed);
 
-          const data = (
-            res && typeof res === "object" && "data" in res
-              ? (res as { data: AnalyzeResult }).data
-              : res
-          ) as AnalyzeResult;
+          const data = normalizeDetectionResponse(res);
           const detections = data.detections ?? [];
           setCurrentDetections(detections);
 
@@ -235,7 +231,7 @@ function ContinuousCameraMonitor({ detectionEngineEnabled }: { detectionEngineEn
               // Record Session Event
               const eventItem: SessionEvent = {
                 id: `${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
-                timestamp: new Date(),
+                timestamp: new Date().toISOString(),
                 animal,
                 threatLevel: tier || "MEDIUM",
                 confidence: data.highest_confidence ?? 0.85,

@@ -163,7 +163,7 @@ class AttendanceAPITests(TestCase):
         self.client.force_authenticate(user=self.admin_user)
         response = self.client.post(
             self.check_out_url,
-            {"farmer_id": self.farmer_1.pk, "check_out_time": "16:30:00"},
+            {"farmer_id": self.farmer_1.pk, "check_out_time": "16:30:00", "work_description": "Irrigation and weeding in Field 1"},
             format='json'
         )
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -226,18 +226,20 @@ class AttendanceAPITests(TestCase):
         self.client.force_authenticate(user=self.admin_user)
         payload = {
             "farmer_id": self.farmer_1.pk,
-            "check_out_time": "16:30:00"
+            "check_out_time": "16:30:00",
+            "work_description": "Irrigation and pest control in North Field."
         }
         response = self.client.post(self.check_out_url, payload, format='json')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         data = response.json()['data']
         self.assertEqual(data['total_hours'], 8.5)
         self.assertEqual(data['check_out'], "16:30:00")
+        self.assertEqual(data['work_description'], "Irrigation and pest control in North Field.")
 
     def test_20_checkout_without_active_checkin_fails(self):
         """20. Check-out without an active check-in fails with 400."""
         self.client.force_authenticate(user=self.admin_user)
-        response = self.client.post(self.check_out_url, {"farmer_id": self.farmer_1.pk}, format='json')
+        response = self.client.post(self.check_out_url, {"farmer_id": self.farmer_1.pk, "work_description": "General farm work completed."}, format='json')
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("No active check-in", str(response.json()['errors']['farmer_id']))
 
@@ -248,10 +250,11 @@ class AttendanceAPITests(TestCase):
             date=timezone.localdate(),
             check_in=time(8, 0),
             check_out=time(16, 0),
-            total_hours=8.0
+            total_hours=8.0,
+            work_description="Completed previous shift."
         )
         self.client.force_authenticate(user=self.admin_user)
-        response = self.client.post(self.check_out_url, {"farmer_id": self.farmer_1.pk}, format='json')
+        response = self.client.post(self.check_out_url, {"farmer_id": self.farmer_1.pk, "work_description": "Trying second checkout."}, format='json')
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("already checked out", str(response.json()['errors']['farmer_id']))
 
@@ -262,12 +265,13 @@ class AttendanceAPITests(TestCase):
         att2 = Attendance.objects.create(farmer=self.farmer_2, date=today, check_in=time(8, 30))
 
         self.client.force_authenticate(user=self.admin_user)
-        self.client.post(self.check_out_url, {"farmer_id": self.farmer_1.pk, "check_out_time": "17:00:00"}, format='json')
+        self.client.post(self.check_out_url, {"farmer_id": self.farmer_1.pk, "check_out_time": "17:00:00", "work_description": "Repaired greenhouse netting."}, format='json')
 
         att1.refresh_from_db()
         att2.refresh_from_db()
 
         self.assertEqual(att1.total_hours, 9.0)
+        self.assertEqual(att1.work_description, "Repaired greenhouse netting.")
         self.assertIsNone(att2.check_out)
         self.assertEqual(att2.total_hours, 0.0)
 
@@ -278,7 +282,8 @@ class AttendanceAPITests(TestCase):
         payload = {
             "farmer_id": self.farmer_1.pk,
             "check_out_time": "16:00:00",
-            "device_location": "12.9800, 77.6000"
+            "device_location": "12.9800, 77.6000",
+            "work_description": "Harvested tomatoes in Sector 4"
         }
         response = self.client.post(self.check_out_url, payload, format='json')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -313,8 +318,8 @@ class AttendanceAPITests(TestCase):
     def test_29_report_filters_by_farmer_id(self):
         """29. Report correctly filters by specific farmer_id."""
         today = timezone.localdate()
-        Attendance.objects.create(farmer=self.farmer_1, date=today, check_in=time(8, 0), total_hours=8.0)
-        Attendance.objects.create(farmer=self.farmer_2, date=today, check_in=time(8, 0), total_hours=6.5)
+        Attendance.objects.create(farmer=self.farmer_1, date=today, check_in=time(8, 0), total_hours=8.0, work_description="Tended soil")
+        Attendance.objects.create(farmer=self.farmer_2, date=today, check_in=time(8, 0), total_hours=6.5, work_description="Fixed fence")
 
         self.client.force_authenticate(user=self.regular_user)
         response = self.client.get(f"{self.report_url}?farmer_id={self.farmer_1.pk}")
@@ -323,6 +328,7 @@ class AttendanceAPITests(TestCase):
         self.assertEqual(data['total_records'], 1)
         self.assertEqual(data['total_hours_sum'], 8.0)
         self.assertEqual(data['records'][0]['farmer_name'], "John Doe")
+        self.assertEqual(data['records'][0]['work_description'], "Tended soil")
 
     def test_30_report_filters_by_date_range(self):
         """30. Report correctly filters records within start_date and end_date."""
@@ -330,9 +336,9 @@ class AttendanceAPITests(TestCase):
         d2 = date(2026, 8, 15)
         d3 = date(2026, 8, 20)
 
-        Attendance.objects.create(farmer=self.farmer_1, date=d1, check_in=time(8, 0), total_hours=8.0)
-        Attendance.objects.create(farmer=self.farmer_1, date=d2, check_in=time(8, 0), total_hours=8.0)
-        Attendance.objects.create(farmer=self.farmer_1, date=d3, check_in=time(8, 0), total_hours=8.0)
+        Attendance.objects.create(farmer=self.farmer_1, date=d1, check_in=time(8, 0), total_hours=8.0, work_description="Day 1 work")
+        Attendance.objects.create(farmer=self.farmer_1, date=d2, check_in=time(8, 0), total_hours=8.0, work_description="Day 2 work")
+        Attendance.objects.create(farmer=self.farmer_1, date=d3, check_in=time(8, 0), total_hours=8.0, work_description="Day 3 work")
 
         self.client.force_authenticate(user=self.regular_user)
         response = self.client.get(f"{self.report_url}?start_date=2026-08-12&end_date=2026-08-18")
@@ -340,6 +346,7 @@ class AttendanceAPITests(TestCase):
         data = response.json()['data']
         self.assertEqual(data['total_records'], 1)
         self.assertEqual(data['records'][0]['date'], "2026-08-15")
+        self.assertEqual(data['records'][0]['work_description'], "Day 2 work")
 
     # ==========================================================================
     # 7. DATA SAFETY & LIST FILTERS (31)
@@ -348,10 +355,97 @@ class AttendanceAPITests(TestCase):
         """31. List filter ?is_active=true returns only open attendance records."""
         today = timezone.localdate()
         Attendance.objects.create(farmer=self.farmer_1, date=today, check_in=time(8, 0)) # Open
-        Attendance.objects.create(farmer=self.farmer_2, date=today, check_in=time(8, 0), check_out=time(16, 0), total_hours=8.0) # Closed
+        Attendance.objects.create(farmer=self.farmer_2, date=today, check_in=time(8, 0), check_out=time(16, 0), total_hours=8.0, work_description="Done") # Closed
 
         self.client.force_authenticate(user=self.regular_user)
         response = self.client.get(f"{self.list_url}?is_active=true")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.json()['data']), 1)
         self.assertIsNone(response.json()['data'][0]['check_out'])
+
+    # ==========================================================================
+    # 8. WORK ACTIVITY TRACKING & EMAIL REPORTING TESTS (32 - 37)
+    # ==========================================================================
+    def test_32_checkout_without_work_description_fails(self):
+        """32. Check-out without work_description field fails with 400 Bad Request."""
+        Attendance.objects.create(farmer=self.farmer_1, date=timezone.localdate(), check_in=time(8, 0))
+        self.client.force_authenticate(user=self.admin_user)
+        response = self.client.post(self.check_out_url, {"farmer_id": self.farmer_1.pk}, format='json')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("work_description", response.json()['errors'])
+
+    def test_33_checkout_with_empty_or_short_work_description_fails(self):
+        """33. Check-out with blank or too short (< 5 chars) work description is rejected."""
+        Attendance.objects.create(farmer=self.farmer_1, date=timezone.localdate(), check_in=time(8, 0))
+        self.client.force_authenticate(user=self.admin_user)
+
+        # Blank
+        res1 = self.client.post(self.check_out_url, {"farmer_id": self.farmer_1.pk, "work_description": "   "}, format='json')
+        self.assertEqual(res1.status_code, status.HTTP_400_BAD_REQUEST)
+
+        # Too short
+        res2 = self.client.post(self.check_out_url, {"farmer_id": self.farmer_1.pk, "work_description": "abc"}, format='json')
+        self.assertEqual(res2.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_34_checkout_saves_work_description_permanently(self):
+        """34. Check-out saves the submitted work description permanently in the database."""
+        att = Attendance.objects.create(farmer=self.farmer_1, date=timezone.localdate(), check_in=time(8, 0))
+        self.client.force_authenticate(user=self.admin_user)
+        desc = "Applied organic fertilizer in North Orchard and completed health check."
+        response = self.client.post(self.check_out_url, {"farmer_id": self.farmer_1.pk, "work_description": desc}, format='json')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        att.refresh_from_db()
+        self.assertEqual(att.work_description, desc)
+        self.assertIsNotNone(att.check_out)
+
+    def test_35_checkout_by_attendance_id_succeeds(self):
+        """35. Check-out using direct attendance_id succeeds."""
+        att = Attendance.objects.create(farmer=self.farmer_2, date=timezone.localdate(), check_in=time(9, 0))
+        self.client.force_authenticate(user=self.admin_user)
+        desc = "Pruning apple trees and clearing irrigation channels."
+        response = self.client.post(self.check_out_url, {"attendance_id": att.pk, "work_description": desc}, format='json')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        att.refresh_from_db()
+        self.assertEqual(att.work_description, desc)
+        self.assertIsNotNone(att.check_out)
+
+    def test_36_email_service_dispatches_to_farmer_and_admin(self):
+        """36. AttendanceEmailService generates email report to farmer and administrator."""
+        from apps.attendance.email_service import AttendanceEmailService
+        from unittest.mock import patch
+
+        att = Attendance.objects.create(
+            farmer=self.farmer_1,
+            date=date(2026, 8, 31),
+            check_in=time(8, 0),
+            check_out=time(16, 0),
+            total_hours=8.0,
+            work_description="Completed tractor tilling and soil testing."
+        )
+
+        with patch('django.core.mail.EmailMultiAlternatives.send', return_value=1) as mock_send:
+            res = AttendanceEmailService.send_farmer_checkout_report(att)
+            self.assertTrue(res['sent'])
+            self.assertIn("john@example.com", res['recipients'])
+            self.assertIn("hariharan4814@gmail.com", res['recipients'])
+            self.assertEqual(mock_send.call_count, 1)
+
+    def test_37_email_failure_preserves_attendance_record(self):
+        """37. If SMTP email dispatch fails, the attendance record is preserved with error logged."""
+        from apps.attendance.services import AttendanceService
+        from unittest.mock import patch
+
+        att = Attendance.objects.create(farmer=self.farmer_1, date=timezone.localdate(), check_in=time(8, 0))
+
+        with patch('apps.attendance.email_service.AttendanceEmailService.send_farmer_checkout_report') as mock_email:
+            mock_email.return_value = {"sent": False, "recipients": ["john@example.com"], "error": "SMTP server timeout"}
+            saved_att = AttendanceService.check_out(
+                farmer_id=self.farmer_1.pk,
+                work_description="Completed fence repair."
+            )
+            self.assertIsNotNone(saved_att.check_out)
+            self.assertEqual(saved_att.work_description, "Completed fence repair.")
+            self.assertFalse(saved_att.email_sent)
+            self.assertEqual(saved_att.email_error, "SMTP server timeout")

@@ -30,9 +30,7 @@
 ## Email Configuration
 The system strictly uses the following email addresses for automatic alert notifications:
 - **Sender Account:** `2ktamilstatus@gmail.com`
-- **Receiver Accounts:**
-  - `hariharan4814@gmail.com`
-  - `hariharanb.inbox@gmail.com`
+- **Receiver Account:** `hariharan4814@gmail.com`
 
 ## Features
 - Object/Animal detection using YOLOv8.

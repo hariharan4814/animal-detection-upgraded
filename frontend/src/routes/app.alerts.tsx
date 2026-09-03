@@ -216,6 +216,9 @@ function AlertsPage() {
                             src={mediaUrl(alert.image_path) ?? ""}
                             alt="Snapshot"
                             className="size-full object-cover transition-transform group-hover:scale-105"
+                            onError={(e) => {
+                              (e.target as HTMLElement).style.display = "none";
+                            }}
                           />
                           <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 transition-opacity group-hover:opacity-100">
                             <Eye className="size-4 text-white" />
@@ -338,6 +341,9 @@ function AlertsPage() {
                 src={mediaUrl(lightboxAlert.image_path) ?? ""}
                 alt="Full alert evidence snapshot"
                 className="size-full object-contain"
+                onError={(e) => {
+                  (e.target as HTMLElement).style.display = "none";
+                }}
               />
             </div>
           )}
@@ -383,6 +389,9 @@ function AlertsPage() {
                     src={mediaUrl(activeAlert.image_path) ?? ""}
                     alt="Alert detection snapshot"
                     className="size-full object-contain transition-transform group-hover:scale-105"
+                    onError={(e) => {
+                      (e.target as HTMLElement).style.display = "none";
+                    }}
                   />
                 </div>
               ) : (

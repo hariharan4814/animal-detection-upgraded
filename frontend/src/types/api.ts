@@ -34,7 +34,7 @@ export interface Farmer {
   name: string;
   phone: string;
   field: string;
-  email?: string | null;
+  email: string;
   created_at?: string;
   updated_at?: string;
 }
@@ -43,20 +43,34 @@ export type FarmerInput = {
   name: string;
   phone: string;
   field: string;
-  email?: string;
+  email: string;
 };
 
 export interface AttendanceRecord {
   id: number;
   farmer: number;
   farmer_name?: string;
+  farmer_email?: string | null;
   date?: string;
   check_in?: string | null;
   check_out?: string | null;
   total_hours?: number | null;
   location?: string | null;
+  work_description?: string | null;
+  email_sent?: boolean;
+  email_sent_at?: string | null;
+  email_error?: string | null;
   created_at?: string;
   updated_at?: string;
+}
+
+export interface CheckOutPayload {
+  farmer_id?: number;
+  attendance_id?: number;
+  work_description: string;
+  location?: string;
+  check_out_time?: string;
+  date?: string;
 }
 
 export interface AttendanceReportData {

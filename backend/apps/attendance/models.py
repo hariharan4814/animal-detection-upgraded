@@ -19,6 +19,10 @@ class Attendance(models.Model):
     check_out = models.TimeField(blank=True, null=True, help_text="Time of check-out")
     total_hours = models.FloatField(default=0.0, blank=True, null=True, help_text="Computed duration in decimal hours")
     location = models.CharField(max_length=255, blank=True, null=True, help_text="GPS coordinates or assigned field name")
+    work_description = models.TextField(blank=True, null=True, help_text="Work/task description completed during shift session entered at checkout")
+    email_sent = models.BooleanField(default=False, help_text="Whether checkout summary email was sent to farmer and admin")
+    email_sent_at = models.DateTimeField(blank=True, null=True, help_text="Timestamp when checkout summary email was dispatched")
+    email_error = models.TextField(blank=True, null=True, help_text="Error details if email delivery failed")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

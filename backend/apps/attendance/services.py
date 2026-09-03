@@ -60,47 +60,75 @@ class AttendanceService:
     @classmethod
     def check_out(
         cls,
-        farmer_id: int,
+        farmer_id: Optional[int] = None,
+        attendance_id: Optional[int] = None,
+        work_description: str = "",
         device_location: Optional[str] = None,
         check_out_time: Optional[time] = None,
         record_date: Optional[date] = None
     ) -> Attendance:
         """
-        Records a worker check-out and computes duration in decimal hours.
-        Legacy rule: Matches open attendance record (check_out is NULL) on target date.
+        Records worker check-out, validates mandatory work description, computes duration,
+        persists the completed shift record, and dispatches the daily work report email.
         """
-        try:
-            farmer = Farmer.objects.get(pk=farmer_id)
-        except Farmer.DoesNotExist:
-            raise serializers.ValidationError({"farmer_id": "Farmer not found with the specified ID."})
+        from apps.attendance.email_service import AttendanceEmailService
+
+        # Validate mandatory work description
+        clean_desc = (work_description or '').strip()
+        if not clean_desc:
+            raise serializers.ValidationError({
+                "work_description": "Work description is required before checking out."
+            })
+        if len(clean_desc) < 5:
+            raise serializers.ValidationError({
+                "work_description": "Please provide a detailed work summary (minimum 5 characters)."
+            })
 
         target_date = record_date or timezone.localdate()
         target_time = check_out_time or timezone.localtime().time().replace(microsecond=0)
 
-        # Match active check-in record
-        attendance = Attendance.objects.filter(
-            farmer=farmer,
-            date=target_date,
-            check_out__isnull=True
-        ).first()
+        # Resolve attendance record
+        attendance = None
+        if attendance_id:
+            attendance = Attendance.objects.select_related('farmer').filter(pk=attendance_id).first()
+            if not attendance:
+                raise serializers.ValidationError({"attendance_id": "Attendance record not found."})
+            if attendance.check_out is not None:
+                raise serializers.ValidationError({
+                    "attendance_id": f"Attendance record #{attendance_id} has already been checked out."
+                })
+        elif farmer_id:
+            try:
+                farmer = Farmer.objects.get(pk=farmer_id)
+            except Farmer.DoesNotExist:
+                raise serializers.ValidationError({"farmer_id": "Farmer not found with the specified ID."})
 
-        if not attendance:
-            # Check if farmer already checked out today
-            already_completed = Attendance.objects.filter(
+            attendance = Attendance.objects.select_related('farmer').filter(
                 farmer=farmer,
                 date=target_date,
-                check_out__isnull=False
+                check_out__isnull=True
             ).first()
-            if already_completed:
+
+            if not attendance:
+                # Check if farmer already checked out today
+                already_completed = Attendance.objects.filter(
+                    farmer=farmer,
+                    date=target_date,
+                    check_out__isnull=False
+                ).first()
+                if already_completed:
+                    raise serializers.ValidationError({
+                        "farmer_id": f"{farmer.name} has already checked out for {target_date}."
+                    })
                 raise serializers.ValidationError({
-                    "farmer_id": f"{farmer.name} has already checked out for {target_date}."
+                    "farmer_id": f"No active check-in found for {farmer.name} on {target_date} to check out."
                 })
-            raise serializers.ValidationError({
-                "farmer_id": f"No active check-in found for {farmer.name} on {target_date} to check out."
-            })
+
+        if not attendance:
+            raise serializers.ValidationError({"farmer_id": "Unable to locate active attendance record."})
 
         # Calculate duration
-        dt_in = datetime.combine(attendance.date, attendance.check_in)
+        dt_in = datetime.combine(attendance.date, attendance.check_in or time(0, 0))
         dt_out = datetime.combine(attendance.date, target_time)
 
         diff_seconds = (dt_out - dt_in).total_seconds()
@@ -111,10 +139,29 @@ class AttendanceService:
 
         hours = round(diff_seconds / 3600.0, 2)
 
+        # 1. Update attendance shift data and save to database FIRST
         attendance.check_out = target_time
         attendance.total_hours = hours
+        attendance.work_description = clean_desc
         if device_location and device_location.strip():
             attendance.location = device_location.strip()
 
         attendance.save()
+
+        # 2. Dispatch automated email report to farmer and administrator
+        try:
+            email_res = AttendanceEmailService.send_farmer_checkout_report(attendance)
+            if email_res.get("sent"):
+                attendance.email_sent = True
+                attendance.email_sent_at = timezone.now()
+                attendance.email_error = None
+            else:
+                attendance.email_sent = False
+                attendance.email_error = email_res.get("error")
+            attendance.save(update_fields=['email_sent', 'email_sent_at', 'email_error', 'updated_at'])
+        except Exception as mail_err:
+            attendance.email_sent = False
+            attendance.email_error = str(mail_err)
+            attendance.save(update_fields=['email_sent', 'email_error', 'updated_at'])
+
         return attendance

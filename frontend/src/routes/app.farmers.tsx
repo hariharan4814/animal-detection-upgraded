@@ -85,12 +85,15 @@ function FarmerForm({
       name: values.name.trim(),
       phone: values.phone.trim(),
       field: values.field.trim(),
-      ...(values.email && values.email.trim() ? { email: values.email.trim() } : {}),
+      email: (values.email ?? "").trim(),
     };
     if (!payload.name) return setErrors({ name: "Farmer name cannot be blank." });
     if (!payload.phone) return setErrors({ phone: "Contact phone number cannot be blank." });
     if (!payload.field)
       return setErrors({ field: "Assigned agricultural field/location cannot be blank." });
+    if (!payload.email) return setErrors({ email: "Farmer email address is required." });
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(payload.email))
+      return setErrors({ email: "Please enter a valid email address." });
 
     try {
       if (farmer) await update.mutateAsync({ id: farmer.id, input: payload });
@@ -152,7 +155,7 @@ function FarmerForm({
             {errors["field"] && <p className="text-xs text-destructive">{errors["field"]}</p>}
           </div>
           <div className="space-y-2">
-            <Label htmlFor="email">Email Address (Optional)</Label>
+            <Label htmlFor="email">Email Address *</Label>
             <Input
               id="email"
               type="email"
@@ -160,6 +163,7 @@ function FarmerForm({
               value={values.email ?? ""}
               onChange={(e) => setValues((v) => ({ ...v, email: e.target.value }))}
               aria-invalid={!!errors["email"]}
+              required
             />
             {errors["email"] && <p className="text-xs text-destructive">{errors["email"]}</p>}
           </div>

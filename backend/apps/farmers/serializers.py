@@ -12,6 +12,16 @@ class FarmerSerializer(serializers.ModelSerializer):
     Serializer for Farmer CRUD operations.
     Exposes workforce attributes with strict server-side validation.
     """
+    email = serializers.EmailField(
+        required=True,
+        allow_blank=False,
+        error_messages={
+            'required': 'Farmer email address is required.',
+            'blank': 'Farmer email address cannot be blank.',
+            'invalid': 'Enter a valid email address.'
+        }
+    )
+
     class Meta:
         model = Farmer
         fields = [
@@ -44,7 +54,15 @@ class FarmerSerializer(serializers.ModelSerializer):
         return trimmed
 
     def validate_email(self, value: str) -> str:
-        if value:
-            trimmed = value.strip().lower()
-            return trimmed
-        return value
+        if not value or not value.strip():
+            raise serializers.ValidationError("Farmer email address is required.")
+        trimmed = value.strip().lower()
+
+        # Uniqueness validation
+        qs = Farmer.objects.filter(email__iexact=trimmed)
+        if self.instance:
+            qs = qs.exclude(pk=self.instance.pk)
+        if qs.exists():
+            raise serializers.ValidationError("A registered farmer with this email address already exists.")
+
+        return trimmed

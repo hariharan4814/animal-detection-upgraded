@@ -1,0 +1,80 @@
+{% extends "emails/base_email.html" %}
+
+{% block title %}Daily Work Report &ndash; {{ farmer_name }} &ndash; {{ record_date }}{% endblock %}
+
+{% block header_title %}Farmer Checkout Summary{% endblock %}
+
+{% block content %}
+<!-- Greeting & Status Banner -->
+<div style="margin-bottom: 24px;">
+    <div style="display: inline-flex; align-items: center; background-color: #f0fdf4; border: 1px solid #bbf7d0; color: #166534; padding: 6px 14px; border-radius: 9999px; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 14px;">
+        &#10003; Attendance Successfully Completed
+    </div>
+    <h2 style="margin: 0 0 6px 0; font-size: 18px; font-weight: 700; color: #0f172a;">
+        Daily Work Summary &ndash; {{ farmer_name }}
+    </h2>
+    <p style="margin: 0; font-size: 14px; line-height: 1.5; color: #475569;">
+        Hello <strong>{{ farmer_name }}</strong>, your farm work session on <strong>{{ record_date }}</strong> has been officially recorded and validated.
+    </p>
+</div>
+
+<!-- 1. Personal & Shift Overview Cards -->
+<table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="margin-bottom: 24px; border-collapse: separate; border-spacing: 0;">
+    <tr>
+        <td style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px;">
+            <div style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 12px;">
+                Personal &amp; Shift Information
+            </div>
+            <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="font-size: 13px;">
+                <tr>
+                    <td style="padding: 6px 0; color: #64748b; width: 40%; font-weight: 600;">Farmer Name:</td>
+                    <td style="padding: 6px 0; color: #0f172a; font-weight: 700;">{{ farmer_name }}</td>
+                </tr>
+                <tr>
+                    <td style="padding: 6px 0; color: #64748b; font-weight: 600;">Farmer Email:</td>
+                    <td style="padding: 6px 0; color: #0f172a; font-weight: 500;">{{ farmer_email }}</td>
+                </tr>
+                <tr>
+                    <td style="padding: 6px 0; color: #64748b; font-weight: 600;">Work Date:</td>
+                    <td style="padding: 6px 0; color: #0f172a; font-weight: 600;">{{ record_date }}</td>
+                </tr>
+                <tr>
+                    <td style="padding: 6px 0; color: #64748b; font-weight: 600;">Assigned Location:</td>
+                    <td style="padding: 6px 0; color: #0f172a; font-weight: 600;">{{ location|default:"Main Field" }}</td>
+                </tr>
+            </table>
+        </td>
+    </tr>
+</table>
+
+<!-- 2. Work Session Hours Metrics -->
+<table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="margin-bottom: 24px; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; font-size: 13px; text-align: center;">
+    <tr style="background-color: #f1f5f9; border-bottom: 1px solid #e2e8f0;">
+        <td style="padding: 12px; font-weight: 700; color: #475569; width: 33.3%;">Check-In</td>
+        <td style="padding: 12px; font-weight: 700; color: #475569; width: 33.3%;">Check-Out</td>
+        <td style="padding: 12px; font-weight: 700; color: #475569; width: 33.3%;">Total Duration</td>
+    </tr>
+    <tr>
+        <td style="padding: 14px 12px; font-size: 15px; font-weight: 700; color: #0f172a; font-family: monospace;">{{ check_in_time }}</td>
+        <td style="padding: 14px 12px; font-size: 15px; font-weight: 700; color: #0f172a; font-family: monospace;">{{ check_out_time }}</td>
+        <td style="padding: 14px 12px; font-size: 15px; font-weight: 800; color: #15803d; font-family: monospace;">{{ total_hours }} hrs</td>
+    </tr>
+</table>
+
+<!-- 3. Prominent Work Completed Card -->
+<div style="background-color: #f8fafc; border: 2px solid #cbd5e1; border-left: 6px solid #15803d; border-radius: 12px; padding: 22px; margin-bottom: 24px;">
+    <div style="display: flex; align-items: center; margin-bottom: 8px;">
+        <span style="font-size: 13px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; color: #15803d;">
+            &#128221; Work Completed Today
+        </span>
+    </div>
+    <div style="font-size: 15px; line-height: 1.6; color: #0f172a; font-weight: 500; white-space: pre-wrap; background-color: #ffffff; padding: 14px 16px; border-radius: 8px; border: 1px solid #e2e8f0; margin-top: 8px;">
+{{ work_description }}
+    </div>
+</div>
+
+<!-- 4. Notice & Archival Message -->
+<div style="background-color: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 14px 18px; font-size: 12px; line-height: 1.5; color: #1e40af; margin-bottom: 8px;">
+    <strong>Notice:</strong> Your attendance record and work report have been permanently archived in the FarmSync database. A copy of this report has also been dispatched to the administrator ({{ admin_email }}).
+</div>
+{% endblock %}
